@@ -272,6 +272,67 @@ create table if not exists weekly_reports (
 );
 
 -- ============================================================================
+-- ADD MISSING COLUMNS (for tables created from earlier migrations)
+-- ============================================================================
+
+do $$
+begin
+  -- Add Phase 1 columns to exercises if missing
+  if not exists (
+    select 1 from information_schema.columns
+    where table_name = 'exercises' and column_name = 'uses_rpe'
+  ) then
+    alter table exercises add column uses_rpe boolean not null default true;
+    alter table exercises add column uses_rir boolean not null default false;
+    alter table exercises add column target_rpe_min numeric(3,1) check (target_rpe_min between 6 and 10);
+    alter table exercises add column target_rpe_max numeric(3,1) check (target_rpe_max between 6 and 10);
+    alter table exercises add column target_rir_min integer check (target_rir_min between 0 and 3);
+    alter table exercises add column target_rir_max integer check (target_rir_max between 0 and 3);
+    alter table exercises add column is_main_exercise boolean not null default false;
+    alter table exercises add column toughness_rating integer check (toughness_rating between 1 and 5);
+    alter table exercises add column weight_direction text not null default 'increase' check (weight_direction in ('increase', 'decrease'));
+    alter table exercises add column exercise_library_id uuid;
+  end if;
+
+  -- Add Phase 1 columns to exercise_sets if missing
+  if not exists (
+    select 1 from information_schema.columns
+    where table_name = 'exercise_sets' and column_name = 'rpe'
+  ) then
+    alter table exercise_sets add column rpe numeric(3,1) check (rpe between 6 and 10);
+    alter table exercise_sets add column rir integer check (rir between 0 and 3);
+  end if;
+
+  -- Add Phase 1 columns to workouts if missing
+  if not exists (
+    select 1 from information_schema.columns
+    where table_name = 'workouts' and column_name = 'day_name'
+  ) then
+    alter table workouts add column day_name text;
+    alter table workouts add column skipped_at timestamp with time zone;
+  end if;
+
+  -- Add Phase 1 columns to exercise_templates if missing
+  if exists (
+    select 1 from information_schema.tables where table_name = 'exercise_templates'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_name = 'exercise_templates' and column_name = 'uses_rpe'
+  ) then
+    alter table exercise_templates add column uses_rpe boolean not null default true;
+    alter table exercise_templates add column uses_rir boolean not null default false;
+    alter table exercise_templates add column target_rpe_min numeric(3,1) check (target_rpe_min between 6 and 10);
+    alter table exercise_templates add column target_rpe_max numeric(3,1) check (target_rpe_max between 6 and 10);
+    alter table exercise_templates add column target_rir_min integer check (target_rir_min between 0 and 3);
+    alter table exercise_templates add column target_rir_max integer check (target_rir_max between 0 and 3);
+    alter table exercise_templates add column is_main_exercise boolean not null default false;
+    alter table exercise_templates add column toughness_rating integer check (toughness_rating between 1 and 5);
+    alter table exercise_templates add column weight_direction text not null default 'increase' check (weight_direction in ('increase', 'decrease'));
+    alter table exercise_templates add column exercise_library_id uuid;
+  end if;
+end $$;
+
+-- ============================================================================
 -- CONSTRAINTS
 -- ============================================================================
 
@@ -296,6 +357,20 @@ begin
 end $$;
 
 -- Add programs FK to weekly_reports
+do $$
+begin
+  -- Add program_id column if it doesn't exist
+  if not exists (
+    select 1 from information_schema.columns
+    where table_name = 'weekly_reports' and column_name = 'program_id'
+  ) then
+    alter table weekly_reports add column program_id uuid;
+  end if;
+end $$;
+
+alter table weekly_reports
+  drop constraint if exists weekly_reports_program_id_fkey;
+
 alter table weekly_reports
   add constraint weekly_reports_program_id_fkey
   foreign key (program_id) references programs(id) on delete cascade;
