@@ -356,31 +356,30 @@ begin
   end if;
 end $$;
 
--- Add programs FK to weekly_reports
+-- Add programs FK to weekly_reports (only if programs table and program_id column exist)
 do $$
 begin
-  -- Add program_id column if it doesn't exist
-  if not exists (
+  if exists (
+    select 1 from information_schema.tables where table_name = 'programs'
+  ) and exists (
     select 1 from information_schema.columns
     where table_name = 'weekly_reports' and column_name = 'program_id'
   ) then
-    alter table weekly_reports add column program_id uuid;
+    alter table weekly_reports
+      drop constraint if exists weekly_reports_program_id_fkey;
+
+    alter table weekly_reports
+      add constraint weekly_reports_program_id_fkey
+      foreign key (program_id) references programs(id) on delete cascade;
+
+    alter table weekly_reports
+      drop constraint if exists weekly_reports_user_program_week_unique;
+
+    alter table weekly_reports
+      add constraint weekly_reports_user_program_week_unique
+      unique (user_id, program_id, week_number);
   end if;
 end $$;
-
-alter table weekly_reports
-  drop constraint if exists weekly_reports_program_id_fkey;
-
-alter table weekly_reports
-  add constraint weekly_reports_program_id_fkey
-  foreign key (program_id) references programs(id) on delete cascade;
-
-alter table weekly_reports
-  drop constraint if exists weekly_reports_user_program_week_unique;
-
-alter table weekly_reports
-  add constraint weekly_reports_user_program_week_unique
-  unique (user_id, program_id, week_number);
 
 -- ============================================================================
 -- ROW LEVEL SECURITY
