@@ -1,101 +1,116 @@
-import Image from "next/image";
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { HomeHeader } from '@/components/workout/HomeHeader'
+import { DayList } from '@/components/workout/DayList'
+import { getWorkoutsWithProgress } from '@/lib/api/workouts'
+import { getCurrentProgram } from '@/lib/api/programs'
+import { getUserLevelInfo, getLevelTitle } from '@/lib/utils/levelProgress'
 
-export default function Home() {
+function getUsernameFromEmail(email: string | undefined): string {
+  if (!email) return 'there'
+  // Extract name from email (before @)
+  const localPart = email.split('@')[0]
+  // Capitalize first letter and replace dots/underscores with spaces
+  const name = localPart
+    .replace(/[._]/g, ' ')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+  return name
+}
+
+export default async function HomePage() {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/login')
+  }
+
+  // Get user profile
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('current_week, current_program_id')
+    .eq('id', user.id)
+    .single()
+
+  // Check if user has a program (new model) or just week (legacy)
+  const currentProgram = profile?.current_program_id
+    ? await getCurrentProgram(supabase, user.id)
+    : null
+
+  // Use program's current week if available, otherwise use profile's current_week
+  const currentWeek = currentProgram?.current_week ?? profile?.current_week ?? 1
+  const totalWeeks = currentProgram?.total_weeks ?? undefined
+  const programName = currentProgram?.name ?? undefined
+  const programId = currentProgram?.id ?? undefined
+
+  // Get all workouts for current week to check completion status
+  let weekWorkouts
+  if (programId) {
+    // New model: filter by program_id
+    const { data } = await supabase
+      .from('workouts')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('program_id', programId)
+      .eq('week_number', currentWeek)
+
+    weekWorkouts = data
+  } else {
+    // Legacy model: filter by week_number only
+    const { data } = await supabase
+      .from('workouts')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('week_number', currentWeek)
+
+    weekWorkouts = data
+  }
+
+  // Check if all days are complete or skipped - if so, redirect to week transition
+  if (weekWorkouts && weekWorkouts.length > 0) {
+    const allDaysDone = weekWorkouts.every(w => {
+      const skippedAt = 'skipped_at' in w ? w.skipped_at : null
+      return w.completed_at !== null || skippedAt !== null
+    })
+
+    if (allDaysDone) {
+      // Redirect to complete page of the first workout to trigger week transition
+      redirect(`/workout/${weekWorkouts[0].id}/complete`)
+    }
+  }
+
+  // Get workouts for current week and level info in parallel
+  const [workoutsWithProgress, levelInfo] = await Promise.all([
+    getWorkoutsWithProgress(supabase, user.id, currentWeek),
+    getUserLevelInfo(supabase, user.id),
+  ])
+
+  const username = getUsernameFromEmail(user.email)
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
+    <div className="min-h-screen bg-gray-950">
+      <div className="max-w-lg mx-auto px-4 py-8">
+        {/* Header with edit mode toggle and level progress */}
+        <HomeHeader
+          username={username}
+          programName={programName}
+          currentWeek={currentWeek}
+          totalWeeks={totalWeeks}
+          level={levelInfo.level}
+          progress={levelInfo.currentProgress}
+          title={getLevelTitle(levelInfo.level)}
         />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        {/* Workouts */}
+        <DayList
+          workoutsWithProgress={workoutsWithProgress}
+          currentWeek={currentWeek}
+          programId={programId}
+        />
+      </div>
     </div>
-  );
+  )
 }
