@@ -2,6 +2,64 @@ import { SupabaseClient } from '@supabase/supabase-js'
 import { CoachAthlete } from '@/lib/types/database'
 
 /**
+ * Generate a unique invitation code for an athlete
+ */
+export async function generateInvitationCode(
+  supabase: SupabaseClient,
+  athleteId: string
+): Promise<string> {
+  // Generate a random 8-character code
+  const code = Math.random().toString(36).substring(2, 10).toUpperCase()
+
+  // Store in database
+  const { error } = await supabase
+    .from('invitation_codes')
+    .insert({
+      code,
+      athlete_id: athleteId,
+      expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+    })
+
+  if (error) {
+    // If code already exists (unlikely), try again
+    if (error.code === '23505') {
+      return generateInvitationCode(supabase, athleteId)
+    }
+    throw error
+  }
+
+  return code
+}
+
+/**
+ * Look up invitation code and return athlete info
+ */
+export async function lookupInvitationCode(
+  supabase: SupabaseClient,
+  code: string
+): Promise<{ athlete_id: string; athlete: { email: string; current_level: number }[] } | null> {
+  const { data, error } = await supabase
+    .from('invitation_codes')
+    .select(`
+      athlete_id,
+      athlete:profiles!invitation_codes_athlete_id_fkey (
+        email,
+        current_level
+      )
+    `)
+    .eq('code', code)
+    .gt('expires_at', new Date().toISOString())
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw error
+  }
+
+  return data as { athlete_id: string; athlete: { email: string; current_level: number }[] } | null
+}
+
+/**
  * Get all athletes for a coach
  */
 export async function getCoachAthletes(

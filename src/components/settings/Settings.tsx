@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
-import { getAthleteCoach, getPendingInvitations, acceptCoachInvitation, rejectCoachInvitation } from '@/lib/api/coach'
+import { getAthleteCoach, getPendingInvitations, acceptCoachInvitation, rejectCoachInvitation, generateInvitationCode, lookupInvitationCode } from '@/lib/api/coach'
 import { createClient } from '@/lib/supabase/client'
 
 export function Settings({ userId }: { userId: string }) {
@@ -14,6 +14,10 @@ export function Settings({ userId }: { userId: string }) {
   const [isInviting, setIsInviting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [invitationCode, setInvitationCode] = useState<string | null>(null)
+  const [showInviteCode, setShowInviteCode] = useState(false)
+  const [inviteCodeInput, setInviteCodeInput] = useState('')
+  const [isLookingUpCode, setIsLookingUpCode] = useState(false)
 
   const loadCoachData = useCallback(async () => {
     setLoading(true)
@@ -29,6 +33,18 @@ export function Settings({ userId }: { userId: string }) {
       // Load pending invitations
       const invites = await getPendingInvitations(supabase, userId)
       setPendingInvites(invites)
+
+      // Load or generate invitation code
+      const { data: existingCode } = await supabase
+        .from('invitation_codes')
+        .select('code')
+        .eq('athlete_id', userId)
+        .gt('expires_at', new Date().toISOString())
+        .single()
+
+      if (existingCode) {
+        setInvitationCode(existingCode.code)
+      }
     } catch (err) {
       console.error('Failed to load coach data:', err)
     } finally {
@@ -173,16 +189,82 @@ export function Settings({ userId }: { userId: string }) {
         ) : (
           <div className="text-center py-8">
             <p className="text-gray-400 mb-4">No coach connected</p>
-            <Button
-              variant="primary"
-              onClick={() => setShowInviteCoach(true)}
-            >
-              + Add Coach
-            </Button>
+            <div className="flex gap-3 justify-center">
+              <Button
+                variant="primary"
+                onClick={() => setShowInviteCoach(true)}
+              >
+                + Add Coach
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setShowInviteCode(true)}
+              >
+                Invitation Code
+              </Button>
+            </div>
             <p className="text-xs text-gray-500 mt-4">
-              Enter your coach&apos;s username or email to connect
+              Enter your coach&apos;s username or generate an invitation code
             </p>
           </div>
+        )}
+      </div>
+
+      {/* Invitation Code Section - always visible to generate/view code */}
+      <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 mb-6">
+        <h2 className="text-lg font-semibold text-white mb-4">Invitation Code</h2>
+        <p className="text-gray-400 text-sm mb-4">
+          Generate a code to share with your coach
+        </p>
+
+        {invitationCode ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-4 bg-gray-800 rounded-lg border border-gray-700">
+              <code className="text-2xl font-mono text-white flex-1 text-center tracking-widest">
+                {invitationCode}
+              </code>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(invitationCode)
+                }}
+              >
+                Copy
+              </Button>
+            </div>
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={async () => {
+                try {
+                  const supabase = createClient()
+                  const code = await generateInvitationCode(supabase, userId)
+                  setInvitationCode(code)
+                } catch (err) {
+                  console.error('Failed to generate code:', err)
+                }
+              }}
+            >
+              Generate New Code
+            </Button>
+          </div>
+        ) : (
+          <Button
+            variant="primary"
+            className="w-full"
+            onClick={async () => {
+              try {
+                const supabase = createClient()
+                const code = await generateInvitationCode(supabase, userId)
+                setInvitationCode(code)
+              } catch (err) {
+                console.error('Failed to generate code:', err)
+              }
+            }}
+          >
+            Generate Invitation Code
+          </Button>
         )}
       </div>
 
@@ -211,45 +293,209 @@ export function Settings({ userId }: { userId: string }) {
               </div>
             )}
 
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Coach Username or Email
-              </label>
-              <input
-                type="text"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="Enter your coach's username or email"
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                autoFocus
-              />
+            {/* Tab buttons */}
+            <div className="flex gap-2 mb-6">
+              <button
+                onClick={() => setInviteCodeInput('')}
+                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                  !inviteCodeInput
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                By Email
+              </button>
+              <button
+                onClick={() => setInviteCodeInput(inviteCodeInput ? '' : ' ')}
+                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                  inviteCodeInput
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                By Code
+              </button>
             </div>
 
-            <div className="flex gap-3">
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={() => {
-                  setShowInviteCoach(false)
-                  setInviteEmail('')
-                  setError(null)
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                className="flex-1"
-                onClick={handleInviteCoach}
-                loading={isInviting}
-                disabled={!inviteEmail.trim()}
-              >
-                Send Invite
-              </Button>
-            </div>
+            {!inviteCodeInput ? (
+              <>
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Coach Username or Email
+                  </label>
+                  <input
+                    type="text"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="Enter your coach's username or email"
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={() => {
+                      setShowInviteCoach(false)
+                      setInviteEmail('')
+                      setError(null)
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    className="flex-1"
+                    onClick={handleInviteCoach}
+                    loading={isInviting}
+                    disabled={!inviteEmail.trim()}
+                  >
+                    Send Invite
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Invitation Code
+                  </label>
+                  <input
+                    type="text"
+                    value={inviteCodeInput}
+                    onChange={(e) => setInviteCodeInput(e.target.value)}
+                    placeholder="Enter invitation code from your coach"
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-xl tracking-widest uppercase"
+                    maxLength={8}
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={() => {
+                      setShowInviteCoach(false)
+                      setInviteCodeInput('')
+                      setError(null)
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    className="flex-1"
+                    onClick={handleLookupCode}
+                    loading={isLookingUpCode}
+                    disabled={inviteCodeInput.length !== 8}
+                  >
+                    Connect
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Show Invitation Code Modal */}
+      {showInviteCode && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-900 rounded-2xl max-w-md w-full p-6 border border-gray-800">
+            <h2 className="text-2xl font-bold text-white mb-4">Your Invitation Code</h2>
+
+            <p className="text-gray-400 text-sm mb-6">
+              Share this code with your coach. They can enter it in their dashboard to connect with you.
+            </p>
+
+            {invitationCode ? (
+              <>
+                <div className="mb-6 p-6 bg-gray-800 rounded-lg border border-gray-700">
+                  <code className="block text-4xl font-mono text-white text-center tracking-widest">
+                    {invitationCode}
+                  </code>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/invite/${invitationCode}`)
+                    }}
+                  >
+                    Copy Link
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={() => {
+                      navigator.clipboard.writeText(invitationCode)
+                    }}
+                  >
+                    Copy Code
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <p className="text-center text-gray-400">Loading...</p>
+            )}
+
+            <Button
+              variant="secondary"
+              className="w-full mt-4"
+              onClick={() => setShowInviteCode(false)}
+            >
+              Close
+            </Button>
           </div>
         </div>
       )}
     </div>
   )
+
+  async function handleLookupCode() {
+    setIsLookingUpCode(true)
+    setError(null)
+
+    try {
+      const supabase = createClient()
+      const result = await lookupInvitationCode(supabase, inviteCodeInput)
+
+      if (!result) {
+        setError('Invalid or expired invitation code')
+        return
+      }
+
+      // Accept the invitation by creating the coach-athlete relationship
+      await supabase.from('coach_athlete').insert({
+        coach_id: result.athlete_id,
+        athlete_id: userId,
+        status: 'active',
+        can_edit: false,
+      })
+
+      // Create notification for athlete
+      await supabase.from('notifications').insert({
+        user_id: userId,
+        type: 'athlete_added',
+        title: 'Coach Connected',
+        message: `You are now connected with your coach!`,
+        metadata: { coach_id: result.athlete_id },
+        read: false,
+      })
+
+      // Reload data
+      await loadCoachData()
+      setShowInviteCoach(false)
+      setInviteCodeInput('')
+    } catch (err) {
+      console.error('Failed to lookup code:', err)
+      setError(err instanceof Error ? err.message : 'Failed to connect with coach')
+    } finally {
+      setIsLookingUpCode(false)
+    }
+  }
 }
