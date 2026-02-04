@@ -15,14 +15,24 @@ export function Settings({ userId }: { userId: string }) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [invitationCode, setInvitationCode] = useState<string | null>(null)
-  const [showInviteCode, setShowInviteCode] = useState(false)
   const [inviteCodeInput, setInviteCodeInput] = useState('')
   const [isLookingUpCode, setIsLookingUpCode] = useState(false)
+  const [isCoachMode, setIsCoachMode] = useState(false)
+  const [athleteCount, setAthleteCount] = useState(0)
 
   const loadCoachData = useCallback(async () => {
     setLoading(true)
     try {
       const supabase = createClient()
+
+      // Check if user is a coach (has athletes)
+      const { data: athletesData } = await supabase
+        .from('coach_athlete')
+        .select('id')
+        .eq('coach_id', userId)
+        .eq('status', 'active')
+
+      setAthleteCount(athletesData?.length || 0)
 
       // Load current coach
       const coachData = await getAthleteCoach(supabase, userId)
@@ -110,6 +120,49 @@ export function Settings({ userId }: { userId: string }) {
     }
   }
 
+  const handleLookupCode = async () => {
+    setIsLookingUpCode(true)
+    setError(null)
+
+    try {
+      const supabase = createClient()
+      const result = await lookupInvitationCode(supabase, inviteCodeInput)
+
+      if (!result) {
+        setError('Invalid or expired invitation code')
+        return
+      }
+
+      // Accept the invitation by creating the coach-athlete relationship
+      await supabase.from('coach_athlete').insert({
+        coach_id: result.athlete_id,
+        athlete_id: userId,
+        status: 'active',
+        can_edit: false,
+      })
+
+      // Create notification for athlete
+      await supabase.from('notifications').insert({
+        user_id: userId,
+        type: 'athlete_added',
+        title: 'Coach Connected',
+        message: `You are now connected with your coach!`,
+        metadata: { coach_id: result.athlete_id },
+        read: false,
+      })
+
+      // Reload data
+      await loadCoachData()
+      setShowInviteCoach(false)
+      setInviteCodeInput('')
+    } catch (err) {
+      console.error('Failed to lookup code:', err)
+      setError(err instanceof Error ? err.message : 'Failed to connect with coach')
+    } finally {
+      setIsLookingUpCode(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -140,75 +193,6 @@ export function Settings({ userId }: { userId: string }) {
           <p className="text-red-200 text-sm">{error}</p>
         </div>
       )}
-
-      {/* Coach Section */}
-      <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 mb-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Coach</h2>
-
-        {coach ? (
-          <div className="flex items-center justify-between p-4 bg-green-900/20 rounded-lg border border-green-900/50">
-            <div>
-              <p className="text-sm text-gray-400">Your Coach</p>
-              <p className="text-white font-medium">{coach.email}</p>
-            </div>
-            <span className="text-xs px-3 py-1 bg-green-900/30 text-green-400 rounded-full">
-              Active
-            </span>
-          </div>
-        ) : pendingInvites.length > 0 ? (
-          <div className="space-y-3">
-            <p className="text-sm text-gray-400">You have pending coach invitations:</p>
-            {pendingInvites.map((invite) => (
-              <div
-                key={invite.id}
-                className="flex items-center justify-between p-4 bg-yellow-900/20 rounded-lg border border-yellow-900/50"
-              >
-                <div>
-                  <p className="text-sm text-gray-400">Coach Invitation</p>
-                  <p className="text-white font-medium">{invite.coach?.[0]?.email || 'Unknown'}</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => handleAcceptInvite(invite.id, invite.coach_id)}
-                  >
-                    Accept
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleRejectInvite(invite.id, invite.coach_id)}
-                  >
-                    Reject
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <p className="text-gray-400 mb-4">No coach connected</p>
-            <div className="flex gap-3 justify-center">
-              <Button
-                variant="primary"
-                onClick={() => setShowInviteCoach(true)}
-              >
-                + Add Coach
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => setShowInviteCode(true)}
-              >
-                Invitation Code
-              </Button>
-            </div>
-            <p className="text-xs text-gray-500 mt-4">
-              Enter your coach&apos;s username or generate an invitation code
-            </p>
-          </div>
-        )}
-      </div>
 
       {/* Invitation Code Section - always visible to generate/view code */}
       <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 mb-6">
@@ -268,17 +252,118 @@ export function Settings({ userId }: { userId: string }) {
         )}
       </div>
 
-      {/* Coach Dashboard Link */}
+      {/* Mode Switcher */}
       <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-        <h2 className="text-lg font-semibold text-white mb-4">Coach Mode</h2>
-        <p className="text-gray-400 text-sm mb-4">
-          Are you a coach? Access your coach dashboard to manage athletes.
-        </p>
-        <Link href="/coach">
-          <Button variant="secondary" className="w-full">
-            Go to Coach Dashboard
-          </Button>
-        </Link>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">Your Mode</h2>
+          <div className="flex gap-2 bg-gray-800 rounded-lg p-1">
+            <button
+              onClick={() => setIsCoachMode(false)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                !isCoachMode
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              Athlete
+            </button>
+            <button
+              onClick={() => setIsCoachMode(true)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isCoachMode
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              Coach
+            </button>
+          </div>
+        </div>
+
+        {/* Athlete Mode Content */}
+        {!isCoachMode ? (
+          <div className="space-y-4">
+            {coach ? (
+              <div className="flex items-center justify-between p-4 bg-green-900/20 rounded-lg border border-green-900/50">
+                <div>
+                  <p className="text-sm text-gray-400">Your Coach</p>
+                  <p className="text-white font-medium">{coach.email}</p>
+                </div>
+                <span className="text-xs px-3 py-1 bg-green-900/30 text-green-400 rounded-full">
+                  Connected
+                </span>
+              </div>
+            ) : pendingInvites.length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-400">You have pending coach invitations:</p>
+                {pendingInvites.map((invite) => (
+                  <div
+                    key={invite.id}
+                    className="flex items-center justify-between p-4 bg-yellow-900/20 rounded-lg border border-yellow-900/50"
+                  >
+                    <div>
+                      <p className="text-sm text-gray-400">Coach Invitation</p>
+                      <p className="text-white font-medium">{invite.coach?.[0]?.email || 'Unknown'}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => handleAcceptInvite(invite.id, invite.coach_id)}
+                      >
+                        Accept
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleRejectInvite(invite.id, invite.coach_id)}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-gray-400 mb-3">No coach connected</p>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setShowInviteCoach(true)}
+                >
+                  + Add Coach
+                </Button>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Coach Mode Content */
+          <div className="space-y-4">
+            {athleteCount > 0 ? (
+              <div className="flex items-center justify-between p-4 bg-blue-900/20 rounded-lg border border-blue-900/50">
+                <div>
+                  <p className="text-sm text-gray-400">You have</p>
+                  <p className="text-white font-medium">{athleteCount} athlete{athleteCount === 1 ? '' : 's'}</p>
+                </div>
+                <Link href="/coach">
+                  <Button variant="primary" size="sm">
+                    Manage
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-gray-400 mb-3">No athletes yet</p>
+                <Link href="/coach">
+                  <Button variant="primary" size="sm">
+                    Invite Athletes
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Invite Coach Modal */}
@@ -400,102 +485,6 @@ export function Settings({ userId }: { userId: string }) {
         </div>
       )}
 
-      {/* Show Invitation Code Modal */}
-      {showInviteCode && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-900 rounded-2xl max-w-md w-full p-6 border border-gray-800">
-            <h2 className="text-2xl font-bold text-white mb-4">Your Invitation Code</h2>
-
-            <p className="text-gray-400 text-sm mb-6">
-              Share this code with your coach. They can enter it in their dashboard to connect with you.
-            </p>
-
-            {invitationCode ? (
-              <>
-                <div className="mb-6 p-6 bg-gray-800 rounded-lg border border-gray-700">
-                  <code className="block text-4xl font-mono text-white text-center tracking-widest">
-                    {invitationCode}
-                  </code>
-                </div>
-
-                <div className="flex gap-3">
-                  <Button
-                    variant="secondary"
-                    className="flex-1"
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/invite/${invitationCode}`)
-                    }}
-                  >
-                    Copy Link
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    className="flex-1"
-                    onClick={() => {
-                      navigator.clipboard.writeText(invitationCode)
-                    }}
-                  >
-                    Copy Code
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <p className="text-center text-gray-400">Loading...</p>
-            )}
-
-            <Button
-              variant="secondary"
-              className="w-full mt-4"
-              onClick={() => setShowInviteCode(false)}
-            >
-              Close
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   )
-
-  async function handleLookupCode() {
-    setIsLookingUpCode(true)
-    setError(null)
-
-    try {
-      const supabase = createClient()
-      const result = await lookupInvitationCode(supabase, inviteCodeInput)
-
-      if (!result) {
-        setError('Invalid or expired invitation code')
-        return
-      }
-
-      // Accept the invitation by creating the coach-athlete relationship
-      await supabase.from('coach_athlete').insert({
-        coach_id: result.athlete_id,
-        athlete_id: userId,
-        status: 'active',
-        can_edit: false,
-      })
-
-      // Create notification for athlete
-      await supabase.from('notifications').insert({
-        user_id: userId,
-        type: 'athlete_added',
-        title: 'Coach Connected',
-        message: `You are now connected with your coach!`,
-        metadata: { coach_id: result.athlete_id },
-        read: false,
-      })
-
-      // Reload data
-      await loadCoachData()
-      setShowInviteCoach(false)
-      setInviteCodeInput('')
-    } catch (err) {
-      console.error('Failed to lookup code:', err)
-      setError(err instanceof Error ? err.message : 'Failed to connect with coach')
-    } finally {
-      setIsLookingUpCode(false)
-    }
-  }
 }
