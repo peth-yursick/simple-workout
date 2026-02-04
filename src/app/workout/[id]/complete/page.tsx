@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { getWorkout } from '@/lib/api/workouts'
 import { analyzeWeekForRecommendations } from '@/lib/utils/exerciseAnalysis'
 import { WeekTransitionModal } from '@/components/workout/WeekTransitionModal'
+import { WeeklyReportModal } from '@/components/weekly/WeeklyReportModal'
 import { WorkoutCompleteView } from './WorkoutCompleteView'
 
 interface CompletePageProps {
@@ -49,19 +50,39 @@ export default async function CompletePage({ params }: CompletePageProps) {
     })
 
   if (allComplete) {
-    // All 3 days complete - show week transition
-    const recommendations = await analyzeWeekForRecommendations(
-      supabase,
-      user.id,
-      workout.week_number
-    )
+    // Check if user has an active coach
+    const { data: coachRelation } = await supabase
+      .from('coach_athlete')
+      .select('coach_id')
+      .eq('athlete_id', user.id)
+      .eq('status', 'active')
+      .single()
 
-    return (
-      <WeekTransitionModal
-        weekNumber={workout.week_number}
-        recommendations={recommendations}
-      />
-    )
+    const hasCoach = !!coachRelation?.coach_id
+
+    if (hasCoach) {
+      // Coach mode: show weekly report form (no weight recommendations)
+      return (
+        <WeeklyReportModal
+          weekNumber={workout.week_number}
+          programId={workout.program_id}
+        />
+      )
+    } else {
+      // Standalone mode: show weight recommendations
+      const recommendations = await analyzeWeekForRecommendations(
+        supabase,
+        user.id,
+        workout.week_number
+      )
+
+      return (
+        <WeekTransitionModal
+          weekNumber={workout.week_number}
+          recommendations={recommendations}
+        />
+      )
+    }
   }
 
   // Regular workout completion (not end of week yet)
