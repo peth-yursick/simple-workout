@@ -222,7 +222,7 @@ export async function duplicateWorkoutsToNextWeek(
         }
 
         // Only add Phase 1 fields if they exist on the source exercise and have valid values
-        const exAny = ex as Record<string, unknown>
+        const exAny = ex as unknown as Record<string, unknown>
 
         if (exAny.uses_rpe !== undefined) exerciseData.uses_rpe = exAny.uses_rpe === true
         if (exAny.uses_rir !== undefined) exerciseData.uses_rir = exAny.uses_rir === true
