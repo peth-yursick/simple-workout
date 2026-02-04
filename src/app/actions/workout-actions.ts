@@ -271,6 +271,13 @@ export async function startNextWeek(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
+  // Get user profile to check for program_id
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('current_program_id')
+    .eq('id', user.id)
+    .single()
+
   // Duplicate workouts from current week to next week
   const newWorkouts = await workoutsApi.duplicateWorkoutsToNextWeek(supabase, user.id, fromWeek, toWeek, profile?.current_program_id || undefined)
 
@@ -319,12 +326,6 @@ export async function startNextWeek(
     .eq('id', user.id)
 
   // Also update programs table if user has a current program
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('current_program_id')
-    .eq('id', user.id)
-    .single()
-
   if (profile?.current_program_id) {
     await supabase
       .from('programs')
