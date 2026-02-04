@@ -58,7 +58,9 @@ export function WeekTransitionModal({ weekNumber, recommendations }: WeekTransit
         }
       }
 
+      console.log('Starting next week...', { weekNumber, weightUpdates })
       const result = await startNextWeek(weekNumber, weekNumber + 1, weightUpdates)
+      console.log('Week started successfully:', result)
 
       // Check if user leveled up
       if (result.leveledUp) {
@@ -69,7 +71,13 @@ export function WeekTransitionModal({ weekNumber, recommendations }: WeekTransit
       }
     } catch (error) {
       console.error('Failed to start next week:', error)
-      setError(error instanceof Error ? error.message : 'Failed to start next week. Please try again.')
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      console.error('Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined
+      })
+      setError(errorMessage || 'Failed to start next week. Please try again.')
     } finally {
       setIsLoading(false)
     }

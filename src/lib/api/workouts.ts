@@ -215,17 +215,19 @@ export async function duplicateWorkoutsToNextWeek(
           target_effort_max: ex.target_effort_max,
         }
 
-        // Only add Phase 1 fields if they exist on the source exercise
-        if ('uses_rpe' in ex) exerciseData.uses_rpe = ex.uses_rpe ?? true
-        if ('uses_rir' in ex) exerciseData.uses_rir = ex.uses_rir ?? false
-        if ('target_rpe_min' in ex && ex.target_rpe_min !== null) exerciseData.target_rpe_min = ex.target_rpe_min
-        if ('target_rpe_max' in ex && ex.target_rpe_max !== null) exerciseData.target_rpe_max = ex.target_rpe_max
-        if ('target_rir_min' in ex && ex.target_rir_min !== null) exerciseData.target_rir_min = ex.target_rir_min
-        if ('target_rir_max' in ex && ex.target_rir_max !== null) exerciseData.target_rir_max = ex.target_rir_max
-        if ('is_main_exercise' in ex) exerciseData.is_main_exercise = ex.is_main_exercise ?? false
-        if ('toughness_rating' in ex && ex.toughness_rating !== null) exerciseData.toughness_rating = ex.toughness_rating
-        if ('weight_direction' in ex) exerciseData.weight_direction = ex.weight_direction ?? 'increase'
-        if ('exercise_library_id' in ex && ex.exercise_library_id !== null) exerciseData.exercise_library_id = ex.exercise_library_id
+        // Only add Phase 1 fields if they exist on the source exercise and have valid values
+        const exAny = ex as Record<string, unknown>
+
+        if (exAny.uses_rpe !== undefined) exerciseData.uses_rpe = exAny.uses_rpe === true
+        if (exAny.uses_rir !== undefined) exerciseData.uses_rir = exAny.uses_rir === true
+        if (exAny.target_rpe_min !== undefined && exAny.target_rpe_min !== null) exerciseData.target_rpe_min = exAny.target_rpe_min
+        if (exAny.target_rpe_max !== undefined && exAny.target_rpe_max !== null) exerciseData.target_rpe_max = exAny.target_rpe_max
+        if (exAny.target_rir_min !== undefined && exAny.target_rir_min !== null) exerciseData.target_rir_min = exAny.target_rir_min
+        if (exAny.target_rir_max !== undefined && exAny.target_rir_max !== null) exerciseData.target_rir_max = exAny.target_rir_max
+        if (exAny.is_main_exercise !== undefined) exerciseData.is_main_exercise = exAny.is_main_exercise === true
+        if (exAny.toughness_rating !== undefined && exAny.toughness_rating !== null) exerciseData.toughness_rating = exAny.toughness_rating
+        if (exAny.weight_direction !== undefined) exerciseData.weight_direction = exAny.weight_direction
+        if (exAny.exercise_library_id !== undefined && exAny.exercise_library_id !== null) exerciseData.exercise_library_id = exAny.exercise_library_id
 
         // Create the exercise
         const { data: newExercise, error: insertError } = await supabase
@@ -234,7 +236,10 @@ export async function duplicateWorkoutsToNextWeek(
           .select()
           .single()
 
-        if (insertError) throw insertError
+        if (insertError) {
+          console.error('Failed to insert exercise:', exerciseData, insertError)
+          throw insertError
+        }
 
         // Create exercise sets for this exercise
         const sets = Array.from({ length: ex.sets }, (_, i) => ({
