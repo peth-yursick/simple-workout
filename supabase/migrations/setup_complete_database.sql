@@ -285,6 +285,14 @@ create table if not exists weekly_reports (
 
 do $$
 begin
+  -- Add template_id to exercises if missing (from migration 002)
+  if not exists (
+    select 1 from information_schema.columns
+    where table_name = 'exercises' and column_name = 'template_id'
+  ) then
+    alter table exercises add column template_id uuid references exercise_templates(id);
+  end if;
+
   -- Add Phase 1 columns to exercises if missing
   if not exists (
     select 1 from information_schema.columns
