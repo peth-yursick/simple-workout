@@ -257,7 +257,6 @@ create table if not exists coach_usage_summary (
 create table if not exists weekly_reports (
   id uuid default uuid_generate_v4() primary key,
   user_id uuid references profiles(id) on delete cascade not null,
-  program_id uuid,
   week_number integer not null,
   difficulty_rating integer check (difficulty_rating between 1 and 5),
   energy_level integer check (energy_level between 1 and 5),
@@ -356,41 +355,8 @@ begin
   end if;
 end $$;
 
--- Add program_id column to weekly_reports if missing (unconditional)
-do $$
-begin
-  if not exists (
-    select 1 from information_schema.columns
-    where table_name = 'weekly_reports' and column_name = 'program_id'
-  ) then
-    alter table weekly_reports add column program_id uuid;
-  end if;
-end $$;
-
--- Add FK constraint only if both programs table and program_id column exist
-do $$
-begin
-  if exists (
-    select 1 from information_schema.tables where table_name = 'programs'
-  ) and exists (
-    select 1 from information_schema.columns
-    where table_name = 'weekly_reports' and column_name = 'program_id'
-  ) then
-    alter table weekly_reports
-      drop constraint if exists weekly_reports_program_id_fkey;
-
-    alter table weekly_reports
-      add constraint weekly_reports_program_id_fkey
-      foreign key (program_id) references programs(id) on delete cascade;
-
-    alter table weekly_reports
-      drop constraint if exists weekly_reports_user_program_week_unique;
-
-    alter table weekly_reports
-      add constraint weekly_reports_user_program_week_unique
-      unique (user_id, program_id, week_number);
-  end if;
-end $$;
+-- Note: program_id removed from weekly_reports temporarily
+-- Can be added later via separate migration once core schema is stable
 
 -- ============================================================================
 -- ROW LEVEL SECURITY
@@ -887,17 +853,6 @@ create index if not exists idx_coach_usage_summary_coach on coach_usage_summary(
 
 -- Weekly reports
 create index if not exists idx_weekly_reports_user on weekly_reports(user_id, week_number desc);
-
--- Only create program index if program_id column exists
-do $$
-begin
-  if exists (
-    select 1 from information_schema.columns
-    where table_name = 'weekly_reports' and column_name = 'program_id'
-  ) then
-    execute 'create index if not exists idx_weekly_reports_program on weekly_reports(program_id, week_number)';
-  end if;
-end $$;
 
 -- ============================================================================
 -- FUNCTIONS AND TRIGGERS
