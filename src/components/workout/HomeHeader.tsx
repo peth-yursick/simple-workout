@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { LevelProgressBar } from '@/components/ui/ProgressBar'
+import { NotificationCenter } from '@/components/notifications/NotificationCenter'
 
 interface HomeHeaderProps {
   username: string
@@ -50,8 +51,9 @@ export function HomeHeader({ username, programName, currentWeek, totalWeeks, lev
         )}
       </header>
 
-      {/* Edit mode toggle */}
-      <div className="flex justify-end mb-3">
+      {/* Edit mode toggle & notifications */}
+      <div className="flex justify-end gap-2 mb-3">
+        <NotificationCenter />
         <button
           onClick={toggleEditMode}
           className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
