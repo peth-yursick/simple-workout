@@ -71,6 +71,8 @@ export async function createExercise(
     rep_max: number
     target_effort_min: number
     target_effort_max: number
+    is_main_exercise?: boolean
+    toughness_rating?: number
   }
 ): Promise<Exercise> {
   // Get the current max order for this workout
@@ -86,7 +88,12 @@ export async function createExercise(
 
   const { data, error } = await supabase
     .from('exercises')
-    .insert({ ...exercise, order: nextOrder })
+    .insert({
+      ...exercise,
+      order: nextOrder,
+      is_main_exercise: exercise.is_main_exercise ?? false,
+      toughness_rating: exercise.toughness_rating ?? 1
+    })
     .select()
     .single()
 
@@ -121,6 +128,8 @@ export async function updateExercise(
     target_effort_min: number
     target_effort_max: number
     status: ExerciseStatus
+    is_main_exercise: boolean
+    toughness_rating: number
   }>
 ): Promise<Exercise> {
   const { data, error } = await supabase

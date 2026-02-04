@@ -143,6 +143,8 @@ export async function createExercise(data: {
   rep_max: number
   target_effort_min: number
   target_effort_max: number
+  is_main_exercise?: boolean
+  toughness_rating?: number
 }) {
   const supabase = await createClient()
   const exercise = await exercisesApi.createExercise(supabase, data)
@@ -162,6 +164,8 @@ export async function updateExercise(
     target_effort_min: number
     target_effort_max: number
     status: ExerciseStatus
+    is_main_exercise: boolean
+    toughness_rating: number
   }>
 ) {
   const supabase = await createClient()

@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
+import { MainExerciseStar } from '@/components/exercise/MainExerciseStar'
+import { ToughnessRating } from '@/components/exercise/ToughnessRating'
 import { createExercise } from '@/app/actions/workout-actions'
 
 interface AddExerciseModalProps {
@@ -16,6 +18,8 @@ export function AddExerciseModal({ workoutId, onClose, onSuccess }: AddExerciseM
   const [weightKg, setWeightKg] = useState('20')
   const [repMin, setRepMin] = useState('6')
   const [repMax, setRepMax] = useState('10')
+  const [isMainExercise, setIsMainExercise] = useState(false)
+  const [toughnessRating, setToughnessRating] = useState(3)
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,6 +37,8 @@ export function AddExerciseModal({ workoutId, onClose, onSuccess }: AddExerciseM
         rep_max: Number(repMax) || 10,
         target_effort_min: 70,
         target_effort_max: 80,
+        is_main_exercise: isMainExercise,
+        toughness_rating: toughnessRating,
       })
       onSuccess()
       onClose()
@@ -44,11 +50,12 @@ export function AddExerciseModal({ workoutId, onClose, onSuccess }: AddExerciseM
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50" onClick={onClose}>
-      <div className="bg-gray-900 rounded-2xl max-w-sm w-full p-6 border border-gray-800" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/70 overflow-y-auto flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <div className="bg-gray-900 rounded-2xl max-w-sm w-full p-6 border border-gray-800 my-8" onClick={e => e.stopPropagation()}>
         <h2 className="text-xl font-bold text-white mb-4">Add Exercise</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Exercise name */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">Name</label>
             <input
@@ -61,6 +68,38 @@ export function AddExerciseModal({ workoutId, onClose, onSuccess }: AddExerciseM
             />
           </div>
 
+          {/* Main Exercise & Toughness Section */}
+          <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-300 mb-3">
+                  Main Exercise
+                </label>
+                <div className="flex items-center gap-2">
+                  <MainExerciseStar
+                    isMain={isMainExercise}
+                    onToggle={() => setIsMainExercise(!isMainExercise)}
+                    size="md"
+                  />
+                  <span className="text-sm text-gray-400">
+                    {isMainExercise ? 'Marked as important' : 'Mark as key exercise'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex-1 ml-4">
+                <label className="block text-sm font-medium text-gray-300 mb-3">
+                  Toughness
+                </label>
+                <ToughnessRating
+                  value={toughnessRating}
+                  onChange={setToughnessRating}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Sets and Weight */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">Sets</label>
@@ -87,6 +126,7 @@ export function AddExerciseModal({ workoutId, onClose, onSuccess }: AddExerciseM
             </div>
           </div>
 
+          {/* Rep ranges */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">Min Reps</label>
@@ -112,6 +152,7 @@ export function AddExerciseModal({ workoutId, onClose, onSuccess }: AddExerciseM
             </div>
           </div>
 
+          {/* Action buttons */}
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>
               Cancel
