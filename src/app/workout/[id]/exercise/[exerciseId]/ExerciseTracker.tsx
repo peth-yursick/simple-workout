@@ -56,7 +56,7 @@ export function ExerciseTracker({ workout, exercise, nextExerciseId, incompleteC
     router.refresh()
   }
 
-  const handleCompleteSet = async (reps: number, effort: number) => {
+  const handleCompleteSet = async (reps: number, rpe?: number, rir?: number, effort?: number) => {
     const isFinalSet = currentSetIndex >= totalSets - 1
 
     // Optimistically mark set as completed
@@ -65,11 +65,11 @@ export function ExerciseTracker({ workout, exercise, nextExerciseId, incompleteC
     if (isFinalSet) {
       // For final set, wait for server action to complete before navigating
       setIsCompletingFinal(true)
-      await completeSet(currentSet.id, exercise.id, workout.id, reps, effort)
+      await completeSet(currentSet.id, exercise.id, workout.id, reps, rpe, rir, effort)
       navigateAfterExerciseDone()
     } else {
       // For intermediate sets, fire and show rest timer
-      completeSet(currentSet.id, exercise.id, workout.id, reps, effort)
+      completeSet(currentSet.id, exercise.id, workout.id, reps, rpe, rir, effort)
       setShowRestTimer(true)
     }
   }

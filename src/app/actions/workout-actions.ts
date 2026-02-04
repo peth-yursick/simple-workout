@@ -198,10 +198,12 @@ export async function completeSet(
   exerciseId: string,
   workoutId: string,
   repsCompleted: number,
-  effortPercentage: number
+  rpe?: number,
+  rir?: number,
+  effortPercentage?: number
 ) {
   const supabase = await createClient()
-  const set = await setsApi.completeSet(supabase, setId, repsCompleted, effortPercentage)
+  const set = await setsApi.completeSet(supabase, setId, repsCompleted, rpe, rir, effortPercentage)
 
   // Check if all sets are complete, update exercise status
   const isComplete = await setsApi.checkExerciseCompletion(supabase, exerciseId)
