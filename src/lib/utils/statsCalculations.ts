@@ -15,6 +15,7 @@ export interface DashboardStats {
   stagnatingExercises: ExerciseProgress[]
   muscleGroupVolumes: MuscleGroupVolume[]
   exerciseVolumes: ExerciseVolume[]
+  individualMuscleVolumes: IndividualMuscleVolume[]
 }
 
 export interface ExerciseVolume {
@@ -46,6 +47,13 @@ export interface MuscleGroupVolume {
   muscle: MuscleGroup
   volume: number
   percentage: number // relative to max
+}
+
+export interface IndividualMuscleVolume {
+  muscle: string
+  volume: number
+  percentage: number
+  isPrimary: boolean // Whether this muscle is primarily targeted in the exercise
 }
 
 /**
@@ -99,16 +107,19 @@ export async function calculateDashboardStats(
   const weeklyStreak = calculateWeeklyStreak(workoutsData)
 
   // Calculate volume over time
-  const volumeOverTime = calculateVolumeOverTime(exercisesWithSets)
+  const volumeOverTime = calculateVolumeOverTime(exercisesWithSets as unknown as WorkoutWithExercises[])
 
   // Calculate exercise progress
-  const { advancing, stagnating } = calculateExerciseProgress(exercisesWithSets)
+  const { advancing, stagnating } = calculateExerciseProgress(exercisesWithSets as unknown as WorkoutWithExercises[])
 
   // Calculate muscle group volumes
-  const muscleGroupVolumes = calculateMuscleGroupVolumes(exercisesWithSets)
+  const muscleGroupVolumes = calculateMuscleGroupVolumes(exercisesWithSets as unknown as WorkoutWithExercises[])
 
   // Calculate per-exercise volumes
-  const exerciseVolumes = calculateExerciseVolumes(exercisesWithSets)
+  const exerciseVolumes = calculateExerciseVolumes(exercisesWithSets as unknown as WorkoutWithExercises[])
+
+  // Calculate individual muscle volumes
+  const individualMuscleVolumes = calculateIndividualMuscleVolumes(exercisesWithSets as unknown as WorkoutWithExercises[])
 
   return {
     totalWorkouts,
@@ -122,6 +133,7 @@ export async function calculateDashboardStats(
     stagnatingExercises: stagnating,
     muscleGroupVolumes,
     exerciseVolumes,
+    individualMuscleVolumes,
   }
 }
 
@@ -166,6 +178,11 @@ async function fetchExercisesWithSets(supabase: SupabaseClient, userId: string, 
         sets,
         rep_min,
         rep_max,
+        exercise_library_id,
+        exercise_library (
+          primary_muscles,
+          secondary_muscles
+        ),
         exercise_sets (
           id,
           reps_completed,
@@ -258,6 +275,10 @@ interface WorkoutWithExercises {
   exercises: {
     name: string
     weight_kg: number
+    exercise_library: {
+      primary_muscles: { muscle: string; activation: number }[] | null
+      secondary_muscles: { muscle: string; activation: number }[] | null
+    } | null
     exercise_sets: {
       reps_completed: number | null
       completed_at: string | null
@@ -447,4 +468,82 @@ function calculateExerciseVolumes(workoutsData: WorkoutWithExercises[]): Exercis
         .sort((a, b) => a.weekNumber - b.weekNumber),
     }))
     .sort((a, b) => b.totalVolume - a.totalVolume)
+}
+
+function calculateIndividualMuscleVolumes(workoutsData: WorkoutWithExercises[]): IndividualMuscleVolume[] {
+  const muscleVolumes: Record<string, number> = {}
+  const musclePrimaryCount: Record<string, number> = {}
+
+  for (const workout of workoutsData) {
+    for (const exercise of workout.exercises || []) {
+      // Calculate volume for this exercise
+      let exerciseVolume = 0
+      for (const set of exercise.exercise_sets || []) {
+        if (set.completed_at && !set.skipped && set.reps_completed) {
+          exerciseVolume += set.reps_completed * exercise.weight_kg
+        }
+      }
+
+      // If exercise has library data with muscle info, use it
+      if (exercise.exercise_library?.primary_muscles && exercise.exercise_library.primary_muscles.length > 0) {
+        // Distribute volume across muscles based on activation percentage
+        const totalActivation = exercise.exercise_library.primary_muscles.reduce(
+          (sum, m) => sum + m.activation,
+          0
+        )
+
+        for (const muscleData of exercise.exercise_library.primary_muscles) {
+          const muscleName = muscleData.muscle
+          const activationRatio = muscleData.activation / totalActivation
+          const muscleVolume = exerciseVolume * activationRatio
+
+          if (!muscleVolumes[muscleName]) {
+            muscleVolumes[muscleName] = 0
+            musclePrimaryCount[muscleName] = 0
+          }
+          muscleVolumes[muscleName] += muscleVolume
+          musclePrimaryCount[muscleName] += 1
+        }
+
+        // Secondary muscles get 50% volume
+        if (exercise.exercise_library.secondary_muscles && exercise.exercise_library.secondary_muscles.length > 0) {
+          const secondaryTotalActivation = exercise.exercise_library.secondary_muscles.reduce(
+            (sum, m) => sum + m.activation,
+            0
+          )
+          const secondaryVolume = exerciseVolume * 0.5
+
+          for (const muscleData of exercise.exercise_library.secondary_muscles) {
+            const muscleName = muscleData.muscle
+            const activationRatio = muscleData.activation / secondaryTotalActivation
+            const muscleVolume = secondaryVolume * activationRatio
+
+            if (!muscleVolumes[muscleName]) {
+              muscleVolumes[muscleName] = 0
+            }
+            muscleVolumes[muscleName] += muscleVolume
+          }
+        }
+      } else {
+        // Fallback to muscle groups if no library data
+        const { primary, secondary } = getMuscleGroups(exercise.name)
+        muscleVolumes[primary] = (muscleVolumes[primary] || 0) + exerciseVolume
+        if (secondary) {
+          muscleVolumes[secondary] = (muscleVolumes[secondary] || 0) + exerciseVolume * 0.5
+        }
+      }
+    }
+  }
+
+  // Convert to array and sort
+  const maxVolume = Math.max(...Object.values(muscleVolumes), 1)
+
+  return Object.entries(muscleVolumes)
+    .map(([muscle, volume]) => ({
+      muscle,
+      volume: Math.round(volume),
+      percentage: Math.round((volume / maxVolume) * 100),
+      isPrimary: (musclePrimaryCount[muscle] || 0) > 0,
+    }))
+    .sort((a, b) => b.volume - a.volume)
 }
