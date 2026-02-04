@@ -292,6 +292,20 @@ export async function startNextWeek(
     .update({ current_week: toWeek })
     .eq('id', user.id)
 
+  // Also update programs table if user has a current program
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('current_program_id')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.current_program_id) {
+    await supabase
+      .from('programs')
+      .update({ current_week: toWeek })
+    .eq('id', profile.current_program_id)
+  }
+
   revalidatePath('/')
   return { workouts: newWorkouts, leveledUp, newLevel }
 }

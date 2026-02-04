@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { useConfetti } from '@/components/ui/Confetti'
 import { WeightRecommendationExercise } from '@/lib/types/database'
@@ -15,7 +14,6 @@ interface WeekTransitionModalProps {
 }
 
 export function WeekTransitionModal({ weekNumber, recommendations }: WeekTransitionModalProps) {
-  const router = useRouter()
   const { fireworks } = useConfetti()
   const [isLoading, setIsLoading] = useState(false)
   const [selectedExercises, setSelectedExercises] = useState<Set<string>>(
@@ -64,8 +62,8 @@ export function WeekTransitionModal({ weekNumber, recommendations }: WeekTransit
       if (result.leveledUp) {
         setLevelUpInfo({ leveledUp: true, newLevel: result.newLevel })
       } else {
-        router.push('/')
-        router.refresh()
+        // Use window.location for full page reload to ensure server components refresh
+        window.location.href = '/'
       }
     } catch (error) {
       console.error('Failed to start next week:', error)
@@ -75,8 +73,8 @@ export function WeekTransitionModal({ weekNumber, recommendations }: WeekTransit
   }
 
   const handleContinueAfterLevelUp = () => {
-    router.push('/')
-    router.refresh()
+    // Use window.location for full page reload to ensure server components refresh
+    window.location.href = '/'
   }
 
   // Show level up congratulations screen

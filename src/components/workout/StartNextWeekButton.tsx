@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { startNextWeek } from '@/app/actions/workout-actions'
 
 interface StartNextWeekButtonProps {
@@ -9,17 +8,16 @@ interface StartNextWeekButtonProps {
 }
 
 export function StartNextWeekButton({ currentWeek }: StartNextWeekButtonProps) {
-  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
   const handleStartNextWeek = async () => {
     setIsLoading(true)
     try {
       await startNextWeek(currentWeek, currentWeek + 1, {})
-      router.refresh()
+      // Use window.location for full page reload to ensure server components refresh
+      window.location.href = '/'
     } catch (error) {
       console.error('Failed to start next week:', error)
-    } finally {
       setIsLoading(false)
     }
   }
