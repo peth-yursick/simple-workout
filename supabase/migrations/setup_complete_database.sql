@@ -895,7 +895,7 @@ begin
     select 1 from information_schema.columns
     where table_name = 'weekly_reports' and column_name = 'program_id'
   ) then
-    create index if not exists idx_weekly_reports_program on weekly_reports(program_id, week_number);
+    execute 'create index if not exists idx_weekly_reports_program on weekly_reports(program_id, week_number)';
   end if;
 end $$;
 
