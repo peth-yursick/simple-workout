@@ -14,6 +14,18 @@ export interface DashboardStats {
   advancingExercises: ExerciseProgress[]
   stagnatingExercises: ExerciseProgress[]
   muscleGroupVolumes: MuscleGroupVolume[]
+  exerciseVolumes: ExerciseVolume[]
+}
+
+export interface ExerciseVolume {
+  name: string
+  totalVolume: number
+  weeklyProgression: ExerciseWeekVolume[]
+}
+
+export interface ExerciseWeekVolume {
+  weekNumber: number
+  volume: number
 }
 
 export interface VolumeDataPoint {
@@ -95,6 +107,9 @@ export async function calculateDashboardStats(
   // Calculate muscle group volumes
   const muscleGroupVolumes = calculateMuscleGroupVolumes(exercisesWithSets)
 
+  // Calculate per-exercise volumes
+  const exerciseVolumes = calculateExerciseVolumes(exercisesWithSets)
+
   return {
     totalWorkouts,
     currentLevel,
@@ -106,6 +121,7 @@ export async function calculateDashboardStats(
     advancingExercises: advancing,
     stagnatingExercises: stagnating,
     muscleGroupVolumes,
+    exerciseVolumes,
   }
 }
 
@@ -388,4 +404,47 @@ function calculateMuscleGroupVolumes(workoutsData: WorkoutWithExercises[]): Musc
     volume: Math.round(muscleVolumes[muscle]),
     percentage: Math.round((muscleVolumes[muscle] / maxVolume) * 100),
   }))
+}
+
+function calculateExerciseVolumes(workoutsData: WorkoutWithExercises[]): ExerciseVolume[] {
+  // Track volume per exercise per week
+  const exerciseWeeklyVolumes: Record<string, Record<number, number>> = {}
+
+  for (const workout of workoutsData) {
+    const weekNum = workout.week_number
+
+    for (const exercise of workout.exercises || []) {
+      const name = exercise.name
+      if (!exerciseWeeklyVolumes[name]) {
+        exerciseWeeklyVolumes[name] = {}
+      }
+      if (!exerciseWeeklyVolumes[name][weekNum]) {
+        exerciseWeeklyVolumes[name][weekNum] = 0
+      }
+
+      // Calculate volume for this exercise instance
+      let exerciseVolume = 0
+      for (const set of exercise.exercise_sets || []) {
+        if (set.completed_at && !set.skipped && set.reps_completed) {
+          exerciseVolume += set.reps_completed * exercise.weight_kg
+        }
+      }
+
+      exerciseWeeklyVolumes[name][weekNum] += exerciseVolume
+    }
+  }
+
+  // Convert to ExerciseVolume array
+  return Object.entries(exerciseWeeklyVolumes)
+    .map(([name, weeklyData]) => ({
+      name,
+      totalVolume: Object.values(weeklyData).reduce((sum, vol) => sum + vol, 0),
+      weeklyProgression: Object.entries(weeklyData)
+        .map(([week, volume]) => ({
+          weekNumber: parseInt(week),
+          volume: Math.round(volume),
+        }))
+        .sort((a, b) => a.weekNumber - b.weekNumber),
+    }))
+    .sort((a, b) => b.totalVolume - a.totalVolume)
 }

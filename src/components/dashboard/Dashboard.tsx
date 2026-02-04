@@ -3,9 +3,9 @@
 import { useState, useCallback } from 'react'
 import { TimeFilter } from './TimeFilter'
 import { StatCard, LevelCard } from './StatCard'
-import { VolumeChart } from './VolumeChart'
 import { ExercisePerformance } from './ExercisePerformance'
 import { MuscleBalance } from './MuscleBalance'
+import { ExerciseVolumeBreakdown } from './ExerciseVolumeBreakdown'
 import { DashboardStats, TimeFilter as TimeFilterType } from '@/lib/utils/statsCalculations'
 import { getLevelTitle } from '@/lib/utils/levelProgress'
 
@@ -66,8 +66,8 @@ export function Dashboard({ initialStats, fetchStats }: DashboardProps) {
         />
       </div>
 
-      {/* Volume Chart */}
-      <VolumeChart data={stats.volumeOverTime} />
+      {/* Exercise Volume Breakdown */}
+      <ExerciseVolumeBreakdown data={stats.exerciseVolumes} />
 
       {/* Exercise Performance */}
       <ExercisePerformance
