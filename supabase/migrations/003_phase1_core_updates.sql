@@ -167,7 +167,6 @@ create table if not exists coach_usage_summary (
 create table if not exists weekly_reports (
   id uuid default uuid_generate_v4() primary key,
   user_id uuid references profiles(id) on delete cascade not null,
-  program_id uuid,
   week_number integer not null,
   difficulty_rating integer check (difficulty_rating between 1 and 5),
   energy_level integer check (energy_level between 1 and 5),
