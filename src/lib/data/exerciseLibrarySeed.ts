@@ -1,4 +1,5 @@
-import { ExerciseLibrary, ExerciseCategory, MovementType, EquipmentType } from '@/lib/types/database'
+import { SupabaseClient } from '@supabase/supabase-js'
+import { ExerciseCategory, MovementType, EquipmentType } from '@/lib/types/database'
 
 interface ExerciseSeed {
   name: string
@@ -1672,7 +1673,7 @@ export const exerciseSeedData: ExerciseSeed[] = [
     primary_muscles: [{ muscle: 'Latissimus Dorsi', activation: 75 }],
     secondary_muscles: [
       { muscle: 'Rhomboids', activation: 55 },
-      { muscle: 'Biceps Brachii', acceleration: 45 }
+      { muscle: 'Biceps Brachii', activation: 45 }
     ],
     weight_direction: 'increase',
     base_exercise: 'Barbell Row',
@@ -1752,7 +1753,7 @@ export const exerciseSeedData: ExerciseSeed[] = [
     ],
     weight_direction: 'increase',
     base_exercise: 'Squat',
-    equival_ratio_ratio: 0.4,
+    equivalency_ratio: 0.4,
     uses_rpe: true,
     uses_rir: false
   },

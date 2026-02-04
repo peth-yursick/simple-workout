@@ -102,13 +102,13 @@ export async function suggestExerciseSwap(
   currentExerciseName: string,
   availableEquipment?: string[]
 ): Promise<ExerciseLibrary | null> {
-  const current = await supabase
+  const { data: current, error } = await supabase
     .from('exercise_library')
     .select('*')
     .ilike('name', currentExerciseName)
     .single()
 
-  if (!current) return null
+  if (error || !current) return null
 
   // Try to find equivalent exercise with matching equipment
   let query = supabase
