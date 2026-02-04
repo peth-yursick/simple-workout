@@ -620,7 +620,7 @@ create policy "Users can update own coaching relationships"
 drop policy if exists "Users can view own videos" on video_uploads;
 drop policy if exists "Coaches can view athlete videos" on video_uploads;
 drop policy if exists "Users can insert own videos" on video_uploads;
-drop policy if exists "Coaches can update videos" on video_uploads;
+drop policy if exists "Users can update own videos" on video_uploads;
 drop policy if exists "Users can delete own videos" on video_uploads;
 
 create policy "Users can view own videos"
@@ -693,6 +693,7 @@ create policy "Coaches can view own usage summary"
 -- Weekly reports policies
 drop policy if exists "Users can view own reports" on weekly_reports;
 drop policy if exists "Users can insert own reports" on weekly_reports;
+drop policy if exists "Users can update own reports" on weekly_reports;
 drop policy if exists "Coaches can view athlete reports" on weekly_reports;
 drop policy if exists "Coaches can update athlete reports" on weekly_reports;
 
