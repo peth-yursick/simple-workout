@@ -167,7 +167,7 @@ create table if not exists coach_usage_summary (
 create table if not exists weekly_reports (
   id uuid default uuid_generate_v4() primary key,
   user_id uuid references profiles(id) on delete cascade not null,
-  program_id uuid references programs(id) on delete cascade,
+  program_id uuid,
   week_number integer not null,
   difficulty_rating integer check (difficulty_rating between 1 and 5),
   energy_level integer check (energy_level between 1 and 5),
@@ -178,9 +178,7 @@ create table if not exists weekly_reports (
   coach_notes text,
   coach_recommendations jsonb not null default '[]',
   submitted_at timestamp with time zone default now() not null,
-  coach_reviewed_at timestamp with time zone,
-
-  unique(user_id, program_id, week_number)
+  coach_reviewed_at timestamp with time zone
 );
 
 -- ============================================================================
@@ -206,6 +204,23 @@ begin
     if not exists (select 1 from pg_constraint where conname = 'exercise_templates_rir_range') then
       alter table exercise_templates add constraint exercise_templates_rir_range check (target_rir_min <= target_rir_max);
     end if;
+  end if;
+end $$;
+
+-- Add programs FK to weekly_reports only if programs table exists
+do $$
+begin
+  if exists (select 1 from information_schema.tables where table_name = 'programs') then
+    alter table weekly_reports
+      add constraint weekly_reports_program_id_fkey
+      foreign key (program_id) references programs(id) on delete cascade;
+
+    alter table weekly_reports
+      drop constraint if exists weekly_reports_user_program_week_unique;
+
+    alter table weekly_reports
+      add constraint weekly_reports_user_program_week_unique
+      unique (user_id, program_id, week_number);
   end if;
 end $$;
 
