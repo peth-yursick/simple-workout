@@ -145,6 +145,7 @@ export async function createExercise(data: {
   target_effort_max: number
   is_main_exercise?: boolean
   toughness_rating?: number
+  exercise_library_id?: string | null
 }) {
   const supabase = await createClient()
   const exercise = await exercisesApi.createExercise(supabase, data)

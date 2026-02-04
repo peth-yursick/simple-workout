@@ -73,6 +73,7 @@ export async function createExercise(
     target_effort_max: number
     is_main_exercise?: boolean
     toughness_rating?: number
+    exercise_library_id?: string | null
   }
 ): Promise<Exercise> {
   // Get the current max order for this workout

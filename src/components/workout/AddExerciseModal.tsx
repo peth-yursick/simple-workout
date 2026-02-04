@@ -24,9 +24,11 @@ export function AddExerciseModal({ workoutId, onClose, onSuccess }: AddExerciseM
   const [toughnessRating, setToughnessRating] = useState(3)
   const [isLoading, setIsLoading] = useState(false)
   const [showLibrary, setShowLibrary] = useState(false)
+  const [selectedLibraryExercise, setSelectedLibraryExercise] = useState<ExerciseLibrary | null>(null)
 
   const handleSelectFromLibrary = (exercise: ExerciseLibrary) => {
     setName(exercise.name)
+    setSelectedLibraryExercise(exercise)
     // Set defaults based on exercise library data
     if (exercise.weight_direction === 'decrease') {
       setWeightKg('0') // Bodyweight exercises
@@ -51,6 +53,7 @@ export function AddExerciseModal({ workoutId, onClose, onSuccess }: AddExerciseM
         target_effort_max: 80,
         is_main_exercise: isMainExercise,
         toughness_rating: toughnessRating,
+        exercise_library_id: selectedLibraryExercise?.id || null,
       })
       onSuccess()
       onClose()
@@ -74,7 +77,10 @@ export function AddExerciseModal({ workoutId, onClose, onSuccess }: AddExerciseM
               <input
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value)
+                  setSelectedLibraryExercise(null) // Clear library selection if manually edited
+                }}
                 placeholder="e.g. Bench Press"
                 className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 autoFocus
@@ -90,6 +96,24 @@ export function AddExerciseModal({ workoutId, onClose, onSuccess }: AddExerciseM
                 </svg>
               </Button>
             </div>
+            {/* Library indicator */}
+            {selectedLibraryExercise && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-green-400">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Selected from library</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedLibraryExercise(null)
+                  }}
+                  className="text-gray-500 hover:text-gray-300"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Main Exercise & Toughness Section */}
