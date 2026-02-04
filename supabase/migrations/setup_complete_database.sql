@@ -356,21 +356,26 @@ begin
   end if;
 end $$;
 
--- Add program_id column to weekly_reports if missing and programs table exists
+-- Add program_id column to weekly_reports if missing (unconditional)
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_name = 'weekly_reports' and column_name = 'program_id'
+  ) then
+    alter table weekly_reports add column program_id uuid;
+  end if;
+end $$;
+
+-- Add FK constraint only if both programs table and program_id column exist
 do $$
 begin
   if exists (
     select 1 from information_schema.tables where table_name = 'programs'
+  ) and exists (
+    select 1 from information_schema.columns
+    where table_name = 'weekly_reports' and column_name = 'program_id'
   ) then
-    -- Add program_id column if it doesn't exist
-    if not exists (
-      select 1 from information_schema.columns
-      where table_name = 'weekly_reports' and column_name = 'program_id'
-    ) then
-      alter table weekly_reports add column program_id uuid;
-    end if;
-
-    -- Add FK constraint
     alter table weekly_reports
       drop constraint if exists weekly_reports_program_id_fkey;
 
@@ -378,7 +383,6 @@ begin
       add constraint weekly_reports_program_id_fkey
       foreign key (program_id) references programs(id) on delete cascade;
 
-    -- Add unique constraint
     alter table weekly_reports
       drop constraint if exists weekly_reports_user_program_week_unique;
 
