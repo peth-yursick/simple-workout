@@ -575,8 +575,8 @@ WHERE NOT EXISTS (SELECT 1 FROM exercise_library WHERE name = 'Chin Up');
 
 INSERT INTO exercise_library (name, aliases, category, movement_type, equipment, primary_muscles, secondary_muscles, weight_direction, base_exercise_id, equivalency_ratio, uses_rpe, uses_rir)
 SELECT
-  'Squat',
-  ARRAY['Bodyweight Squat', 'Air Squat'],
+  'Bodyweight Squat',
+  ARRAY['Air Squat'],
   'compound',
   'legs',
   'bodyweight',
@@ -587,7 +587,7 @@ SELECT
   0.3,
   true,
   true
-WHERE NOT EXISTS (SELECT 1 FROM exercise_library WHERE name = 'Squat' AND equipment = 'bodyweight');
+WHERE NOT EXISTS (SELECT 1 FROM exercise_library WHERE name = 'Bodyweight Squat');
 
 INSERT INTO exercise_library (name, aliases, category, movement_type, equipment, primary_muscles, secondary_muscles, weight_direction, base_exercise_id, equivalency_ratio, uses_rpe, uses_rir)
 SELECT
