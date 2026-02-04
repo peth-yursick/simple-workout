@@ -203,7 +203,7 @@ export async function duplicateWorkoutsToNextWeek(
     if (newWorkout && oldWorkout.exercises?.length) {
       for (const ex of oldWorkout.exercises) {
         // Build exercise data object - only include Phase 1 fields if they exist
-        const exerciseData: any = {
+        const exerciseData: Record<string, unknown> = {
           workout_id: newWorkout.id,
           name: ex.name,
           order: ex.order,
