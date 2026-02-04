@@ -887,7 +887,17 @@ create index if not exists idx_coach_usage_summary_coach on coach_usage_summary(
 
 -- Weekly reports
 create index if not exists idx_weekly_reports_user on weekly_reports(user_id, week_number desc);
-create index if not exists idx_weekly_reports_program on weekly_reports(program_id, week_number);
+
+-- Only create program index if program_id column exists
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_name = 'weekly_reports' and column_name = 'program_id'
+  ) then
+    create index if not exists idx_weekly_reports_program on weekly_reports(program_id, week_number);
+  end if;
+end $$;
 
 -- ============================================================================
 -- FUNCTIONS AND TRIGGERS
