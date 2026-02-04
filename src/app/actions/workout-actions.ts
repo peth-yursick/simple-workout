@@ -272,7 +272,7 @@ export async function startNextWeek(
   if (!user) throw new Error('Not authenticated')
 
   // Duplicate workouts from current week to next week
-  const newWorkouts = await workoutsApi.duplicateWorkoutsToNextWeek(supabase, user.id, fromWeek, toWeek)
+  const newWorkouts = await workoutsApi.duplicateWorkoutsToNextWeek(supabase, user.id, fromWeek, toWeek, profile?.current_program_id || undefined)
 
   // Track unique exercises that got weight increases (for level progress)
   const exercisesWithWeightIncrease = new Set<string>()

@@ -135,13 +135,18 @@ export async function createWorkout(
 export async function createWeekWorkouts(
   supabase: SupabaseClient,
   userId: string,
-  weekNumber: number
+  weekNumber: number,
+  programId?: string
 ): Promise<Workout[]> {
-  const workouts = [1, 2, 3].map(day => ({
-    user_id: userId,
-    week_number: weekNumber,
-    day_number: day,
-  }))
+  const workouts = [1, 2, 3].map(day => {
+    const workout: Record<string, unknown> = {
+      user_id: userId,
+      week_number: weekNumber,
+      day_number: day,
+    }
+    if (programId) workout.program_id = programId
+    return workout
+  })
 
   const { data, error } = await supabase
     .from('workouts')
@@ -171,7 +176,8 @@ export async function duplicateWorkoutsToNextWeek(
   supabase: SupabaseClient,
   userId: string,
   fromWeek: number,
-  toWeek: number
+  toWeek: number,
+  programId?: string
 ): Promise<Workout[]> {
   // Get existing workouts with exercises
   const { data: existingWorkouts, error: fetchError } = await supabase
@@ -190,11 +196,11 @@ export async function duplicateWorkoutsToNextWeek(
   const workoutsWithExercises = existingWorkouts as WorkoutWithExercisesPartial[]
 
   if (!workoutsWithExercises?.length) {
-    return createWeekWorkouts(supabase, userId, toWeek)
+    return createWeekWorkouts(supabase, userId, toWeek, programId)
   }
 
   // Create new workouts for the new week
-  const newWorkouts = await createWeekWorkouts(supabase, userId, toWeek)
+  const newWorkouts = await createWeekWorkouts(supabase, userId, toWeek, programId)
 
   // Duplicate exercises for each day
   for (const oldWorkout of workoutsWithExercises) {
