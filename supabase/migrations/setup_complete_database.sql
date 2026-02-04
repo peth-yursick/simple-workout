@@ -4,6 +4,15 @@
 -- Run this in Supabase SQL Editor to set up the entire database from scratch
 -- ============================================================================
 
+-- CLEANUP: Drop problematic tables from previous failed migrations
+drop table if exists weekly_reports cascade;
+drop table if exists coach_usage_summary cascade;
+drop table if exists usage_tracking cascade;
+drop table if exists notifications cascade;
+drop table if exists video_uploads cascade;
+drop table if exists coach_athlete cascade;
+drop table if exists exercise_library cascade;
+
 -- Enable UUID generation
 create extension if not exists "uuid-ossp";
 
