@@ -320,6 +320,14 @@ begin
     alter table workouts add column skipped_at timestamp with time zone;
   end if;
 
+  -- Add program_id to workouts if missing (from migration 002)
+  if not exists (
+    select 1 from information_schema.columns
+    where table_name = 'workouts' and column_name = 'program_id'
+  ) then
+    alter table workouts add column program_id uuid;
+  end if;
+
   -- Add Phase 1 columns to exercise_templates if missing
   if exists (
     select 1 from information_schema.tables where table_name = 'exercise_templates'
