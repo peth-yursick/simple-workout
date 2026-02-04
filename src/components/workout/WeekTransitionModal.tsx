@@ -20,6 +20,7 @@ export function WeekTransitionModal({ weekNumber, recommendations }: WeekTransit
     new Set(recommendations.filter(r => r.recommendation === 'recommended').map(r => r.exercise_id))
   )
   const [levelUpInfo, setLevelUpInfo] = useState<{ leveledUp: boolean; newLevel: number } | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   // Fire confetti on mount - big celebration for completing the week!
   useEffect(() => {
@@ -47,6 +48,7 @@ export function WeekTransitionModal({ weekNumber, recommendations }: WeekTransit
 
   const handleStartNextWeek = async () => {
     setIsLoading(true)
+    setError(null)
     try {
       // Create weight updates map for selected exercises
       const weightUpdates: Record<string, number> = {}
@@ -67,6 +69,7 @@ export function WeekTransitionModal({ weekNumber, recommendations }: WeekTransit
       }
     } catch (error) {
       console.error('Failed to start next week:', error)
+      setError(error instanceof Error ? error.message : 'Failed to start next week. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -121,6 +124,14 @@ export function WeekTransitionModal({ weekNumber, recommendations }: WeekTransit
           <h2 className="text-2xl font-bold text-white">Week {weekNumber} Complete!</h2>
           <p className="text-gray-400 mt-2">Ready for Week {weekNumber + 1}?</p>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-900/50 border border-red-700 rounded-lg">
+            <p className="text-red-200 text-sm font-medium">Error: {error}</p>
+            <p className="text-red-300/70 text-xs mt-1">Please try again or contact support if the problem persists.</p>
+          </div>
+        )}
 
         {/* Recommendations */}
         {recommendations.length > 0 ? (

@@ -215,6 +215,17 @@ export async function duplicateWorkoutsToNextWeek(
             rep_max: ex.rep_max,
             target_effort_min: ex.target_effort_min,
             target_effort_max: ex.target_effort_max,
+            // Phase 1 fields
+            uses_rpe: ex.uses_rpe ?? true,
+            uses_rir: ex.uses_rir ?? false,
+            target_rpe_min: ex.target_rpe_min ?? null,
+            target_rpe_max: ex.target_rpe_max ?? null,
+            target_rir_min: ex.target_rir_min ?? null,
+            target_rir_max: ex.target_rir_max ?? null,
+            is_main_exercise: ex.is_main_exercise ?? false,
+            toughness_rating: ex.toughness_rating ?? null,
+            weight_direction: ex.weight_direction ?? 'increase',
+            exercise_library_id: ex.exercise_library_id ?? null,
           })
           .select()
           .single()
