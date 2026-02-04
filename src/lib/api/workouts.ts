@@ -202,31 +202,35 @@ export async function duplicateWorkoutsToNextWeek(
 
     if (newWorkout && oldWorkout.exercises?.length) {
       for (const ex of oldWorkout.exercises) {
+        // Build exercise data object - only include Phase 1 fields if they exist
+        const exerciseData: any = {
+          workout_id: newWorkout.id,
+          name: ex.name,
+          order: ex.order,
+          sets: ex.sets,
+          weight_kg: ex.weight_kg,
+          rep_min: ex.rep_min,
+          rep_max: ex.rep_max,
+          target_effort_min: ex.target_effort_min,
+          target_effort_max: ex.target_effort_max,
+        }
+
+        // Only add Phase 1 fields if they exist on the source exercise
+        if ('uses_rpe' in ex) exerciseData.uses_rpe = ex.uses_rpe ?? true
+        if ('uses_rir' in ex) exerciseData.uses_rir = ex.uses_rir ?? false
+        if ('target_rpe_min' in ex && ex.target_rpe_min !== null) exerciseData.target_rpe_min = ex.target_rpe_min
+        if ('target_rpe_max' in ex && ex.target_rpe_max !== null) exerciseData.target_rpe_max = ex.target_rpe_max
+        if ('target_rir_min' in ex && ex.target_rir_min !== null) exerciseData.target_rir_min = ex.target_rir_min
+        if ('target_rir_max' in ex && ex.target_rir_max !== null) exerciseData.target_rir_max = ex.target_rir_max
+        if ('is_main_exercise' in ex) exerciseData.is_main_exercise = ex.is_main_exercise ?? false
+        if ('toughness_rating' in ex && ex.toughness_rating !== null) exerciseData.toughness_rating = ex.toughness_rating
+        if ('weight_direction' in ex) exerciseData.weight_direction = ex.weight_direction ?? 'increase'
+        if ('exercise_library_id' in ex && ex.exercise_library_id !== null) exerciseData.exercise_library_id = ex.exercise_library_id
+
         // Create the exercise
         const { data: newExercise, error: insertError } = await supabase
           .from('exercises')
-          .insert({
-            workout_id: newWorkout.id,
-            name: ex.name,
-            order: ex.order,
-            sets: ex.sets,
-            weight_kg: ex.weight_kg,
-            rep_min: ex.rep_min,
-            rep_max: ex.rep_max,
-            target_effort_min: ex.target_effort_min,
-            target_effort_max: ex.target_effort_max,
-            // Phase 1 fields
-            uses_rpe: ex.uses_rpe ?? true,
-            uses_rir: ex.uses_rir ?? false,
-            target_rpe_min: ex.target_rpe_min ?? null,
-            target_rpe_max: ex.target_rpe_max ?? null,
-            target_rir_min: ex.target_rir_min ?? null,
-            target_rir_max: ex.target_rir_max ?? null,
-            is_main_exercise: ex.is_main_exercise ?? false,
-            toughness_rating: ex.toughness_rating ?? null,
-            weight_direction: ex.weight_direction ?? 'increase',
-            exercise_library_id: ex.exercise_library_id ?? null,
-          })
+          .insert(exerciseData)
           .select()
           .single()
 
