@@ -101,8 +101,7 @@ INSERT INTO exercise_library (name, aliases, category, movement_type, equipment,
 ('Donkey Kick', ARRAY[]::text[], 'accessory', 'legs', 'bodyweight', '[{"muscle": "Gluteus Maximus", "activation": 80}]'::jsonb, '[]'::jsonb, 'decrease', NULL, 1.0, false, true),
 ('Bear Crawl', ARRAY[]::text[], 'accessory', 'core', 'bodyweight', '[{"muscle": "Core", "activation": 70}]'::jsonb, '[{"muscle": "Deltoids", "activation": 45}, {"muscle": "Hip Flexors", "activation": 40}]'::jsonb, 'decrease', NULL, 1.0, true, true),
 ('Crab Walk', ARRAY[]::text[], 'accessory', 'core', 'bodyweight', '[{"muscle": "Triceps Brachii", "activation": 60}]'::jsonb, '[{"muscle": "Deltoids", "activation": 40}, {"muscle": "Core", "activation": 35}]'::jsonb, 'decrease', NULL, 1.0, true, true),
-('L Sit', ARRAY[]::text[], 'accessory', 'core', 'bodyweight', '[{"muscle": "Rectus Abdominis", "activation": 75}]'::jsonb, '[{"muscle": "Hip Flexors", "activation": 50}]'::jsonb, 'decrease', NULL, 1.0, false, true);
-
+('L Sit', ARRAY[]::text[], 'accessory', 'core', 'bodyweight', '[{"muscle": "Rectus Abdominis", "activation": 75}]'::jsonb, '[{"muscle": "Hip Flexors", "activation": 50}]'::jsonb, 'decrease', NULL, 1.0, false, true)
 ON CONFLICT (name) DO NOTHING;
 
 -- =====================================================
