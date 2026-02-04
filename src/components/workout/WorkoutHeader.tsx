@@ -3,8 +3,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Workout, Exercise } from '@/lib/types/database'
+import { DayNameEditor } from './DayNameEditor'
 import { ExerciseList } from './ExerciseList'
 import { SkipDayButton } from './SkipDayButton'
+import { updateWorkout } from '@/app/actions/workout-actions'
 
 interface WorkoutHeaderProps {
   workout: Workout
@@ -15,6 +17,14 @@ interface WorkoutHeaderProps {
 
 export function WorkoutHeader({ workout, exercises, doneCount, totalCount }: WorkoutHeaderProps) {
   const [editMode, setEditMode] = useState(false)
+
+  const handleSaveDayName = async (name: string) => {
+    try {
+      await updateWorkout(workout.id, { day_name: name })
+    } catch (error) {
+      console.error('Failed to update day name:', error)
+    }
+  }
 
   return (
     <>
@@ -39,14 +49,20 @@ export function WorkoutHeader({ workout, exercises, doneCount, totalCount }: Wor
             >
               {editMode ? 'Done Editing' : 'Edit Exercises'}
             </button>
-            {!workout.completed_at && !('skipped_at' in workout && workout.skipped_at) && (
+            {!workout.completed_at && !workout.skipped_at && (
               <SkipDayButton workoutId={workout.id} />
             )}
           </div>
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">Day {workout.day_number}</h1>
+            <h1 className="text-2xl font-bold text-white mb-1">
+              <DayNameEditor
+                dayName={workout.day_name}
+                dayNumber={workout.day_number}
+                onSave={handleSaveDayName}
+              />
+            </h1>
             <p className="text-gray-400">Week {workout.week_number}</p>
           </div>
           <div className="text-right">

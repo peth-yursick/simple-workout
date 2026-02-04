@@ -40,9 +40,14 @@ export function DayCard({ workout, exerciseCount, completedCount, hasSkipped = f
     <Link href={`/workout/${workout.id}`}>
       <div className={`p-4 rounded-xl border-2 transition-all duration-200 ${colorScheme.bg} ${colorScheme.border}`}>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-white">
-            Day {workout.day_number}
-          </h3>
+          <div>
+            <h3 className="text-lg font-semibold text-white">
+              {workout.day_name || `Day ${workout.day_number}`}
+            </h3>
+            {!workout.day_name && (
+              <p className="text-xs text-gray-500 mt-0.5">Week {workout.week_number}</p>
+            )}
+          </div>
           {(isComplete || isDaySkipped) && (
             <span className={`px-2 py-1 text-xs font-medium rounded-full ${colorScheme.badge}`}>
               {colorScheme.badgeText}

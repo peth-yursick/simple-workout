@@ -181,6 +181,26 @@ export async function deleteExercise(exerciseId: string, workoutId: string) {
   revalidatePath(`/workout/${workoutId}`)
 }
 
+export async function updateWorkout(
+  workoutId: string,
+  updates: {
+    day_name?: string
+  }
+) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('workouts')
+    .update(updates)
+    .eq('id', workoutId)
+    .select()
+    .single()
+
+  if (error) throw error
+  revalidatePath(`/workout/${workoutId}`)
+  return data
+}
+
+
 export async function reorderExercises(workoutId: string, exerciseIds: string[]) {
   const supabase = await createClient()
   await exercisesApi.reorderExercises(supabase, workoutId, exerciseIds)
