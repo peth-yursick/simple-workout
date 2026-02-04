@@ -328,6 +328,14 @@ begin
     alter table workouts add column program_id uuid;
   end if;
 
+  -- Add program_id to week_templates if missing (should exist from migration 002)
+  if not exists (
+    select 1 from information_schema.columns
+    where table_name = 'week_templates' and column_name = 'program_id'
+  ) then
+    alter table week_templates add column program_id uuid references programs(id) on delete cascade not null;
+  end if;
+
   -- Add Phase 1 columns to exercise_templates if missing
   if exists (
     select 1 from information_schema.tables where table_name = 'exercise_templates'
