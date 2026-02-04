@@ -1,6 +1,13 @@
 export type ExerciseStatus = 'incomplete' | 'complete' | 'skipped'
 export type WeightRecommendationType = 'consider' | 'recommended'
 export type ProgramStatus = 'active' | 'completed' | 'upcoming'
+export type WeightDirection = 'increase' | 'decrease'
+export type NotificationType = 'coach_update' | 'video_reviewed' | 'weekly_report_submitted' | 'athlete_added' | 'week_complete'
+export type CoachAthleteStatus = 'pending' | 'active' | 'ended'
+export type UsageType = 'video_upload' | 'storage' | 'athlete_count'
+export type ExerciseCategory = 'compound' | 'isolation' | 'accessory'
+export type MovementType = 'push' | 'pull' | 'legs' | 'core'
+export type EquipmentType = 'barbell' | 'dumbbell' | 'machine' | 'bodyweight' | 'cable' | 'other' | 'kettlebell' | 'band'
 
 export interface Profile {
   id: string
@@ -32,6 +39,24 @@ export interface WeekTemplate {
   created_at: string
 }
 
+// ExerciseLibrary - master list of exercises with metadata
+export interface ExerciseLibrary {
+  id: string
+  name: string
+  aliases: string[]
+  category: ExerciseCategory
+  movement_type: MovementType
+  equipment: EquipmentType
+  primary_muscles: { muscle: string; activation: number }[]
+  secondary_muscles: { muscle: string; activation: number }[]
+  weight_direction: WeightDirection
+  base_exercise_id: string | null
+  equivalency_ratio: number
+  uses_rpe: boolean
+  uses_rir: boolean
+  created_at: string
+}
+
 // ExerciseTemplate stores the exercise definition for a week/day
 export interface ExerciseTemplate {
   id: string
@@ -45,6 +70,17 @@ export interface ExerciseTemplate {
   rep_max: number
   target_effort_min: number
   target_effort_max: number
+  // Phase 1 additions
+  uses_rpe: boolean
+  uses_rir: boolean
+  target_rpe_min: number | null
+  target_rpe_max: number | null
+  target_rir_min: number | null
+  target_rir_max: number | null
+  is_main_exercise: boolean
+  toughness_rating: number | null
+  weight_direction: WeightDirection
+  exercise_library_id: string | null
   created_at: string
 }
 
@@ -54,6 +90,7 @@ export interface Workout {
   program_id: string | null
   week_number: number
   day_number: number
+  day_name: string | null // Phase 1: customizable day names
   completed_at: string | null
   skipped_at: string | null
   created_at: string
@@ -72,6 +109,17 @@ export interface Exercise {
   target_effort_min: number
   target_effort_max: number
   status: ExerciseStatus
+  // Phase 1 additions
+  uses_rpe: boolean
+  uses_rir: boolean
+  target_rpe_min: number | null
+  target_rpe_max: number | null
+  target_rir_min: number | null
+  target_rir_max: number | null
+  is_main_exercise: boolean
+  toughness_rating: number | null
+  weight_direction: WeightDirection
+  exercise_library_id: string | null
   created_at: string
 }
 
@@ -81,6 +129,9 @@ export interface ExerciseSet {
   set_number: number
   reps_completed: number | null
   effort_percentage: number | null
+  // Phase 1 additions
+  rpe: number | null // 6-10, 0.5 increments
+  rir: number | null // 0-3
   skipped: boolean
   completed_at: string | null
   created_at: string
@@ -100,6 +151,88 @@ export interface WeightRecommendation {
   exercises: WeightRecommendationExercise[]
   dismissed: boolean
   created_at: string
+}
+
+// Video uploads for form checks
+export interface VideoUpload {
+  id: string
+  user_id: string
+  exercise_id: string | null
+  file_path: string
+  file_size: number
+  duration: number
+  weight_kg: number | null
+  reps: number | null
+  coach_reviewed: boolean
+  coach_comment: string | null
+  coach_id: string | null
+  reviewed_at: string | null
+  auto_delete_at: string
+  created_at: string
+}
+
+// Notifications
+export interface Notification {
+  id: string
+  user_id: string
+  type: NotificationType
+  title: string
+  message: string
+  metadata: Record<string, unknown>
+  read: boolean
+  created_at: string
+}
+
+// Coach-Athlete relationship
+export interface CoachAthlete {
+  id: string
+  coach_id: string
+  athlete_id: string
+  status: CoachAthleteStatus
+  can_edit: boolean
+  started_at: string | null
+  ended_at: string | null
+  created_at: string
+}
+
+// Usage tracking for billing
+export interface UsageTracking {
+  id: string
+  user_id: string
+  usage_type: UsageType
+  amount: number
+  created_at: string
+}
+
+// Monthly usage summary for coaches
+export interface CoachUsageSummary {
+  id: string
+  coach_id: string
+  period_start: string // date
+  period_end: string // date
+  total_athletes: number
+  total_storage_bytes: number
+  total_video_uploads: number
+  estimated_cost_usd: number
+  created_at: string
+}
+
+// Weekly reports from athletes
+export interface WeeklyReport {
+  id: string
+  user_id: string
+  program_id: string | null
+  week_number: number
+  difficulty_rating: number | null // 1-5
+  energy_level: number | null // 1-5
+  sleep_quality: number | null // 1-5
+  stress_level: number | null // 1-5
+  soreness_level: number | null // 1-5
+  notes: string | null
+  coach_notes: string | null
+  coach_recommendations: unknown[] // JSONB array of recommendations
+  submitted_at: string
+  coach_reviewed_at: string | null
 }
 
 // Extended types with relations
@@ -146,6 +279,7 @@ export type Database = {
           user_id: string
           week_number: number
           day_number: number
+          day_name?: string | null
           completed_at?: string | null
           skipped_at?: string | null
           created_at?: string
@@ -155,6 +289,7 @@ export type Database = {
           user_id?: string
           week_number?: number
           day_number?: number
+          day_name?: string | null
           completed_at?: string | null
           skipped_at?: string | null
           created_at?: string
@@ -182,6 +317,16 @@ export type Database = {
           target_effort_min: number
           target_effort_max: number
           status?: ExerciseStatus
+          uses_rpe?: boolean
+          uses_rir?: boolean
+          target_rpe_min?: number | null
+          target_rpe_max?: number | null
+          target_rir_min?: number | null
+          target_rir_max?: number | null
+          is_main_exercise?: boolean
+          toughness_rating?: number | null
+          weight_direction?: WeightDirection
+          exercise_library_id?: string | null
           created_at?: string
         }
         Update: {
@@ -196,6 +341,16 @@ export type Database = {
           target_effort_min?: number
           target_effort_max?: number
           status?: ExerciseStatus
+          uses_rpe?: boolean
+          uses_rir?: boolean
+          target_rpe_min?: number | null
+          target_rpe_max?: number | null
+          target_rir_min?: number | null
+          target_rir_max?: number | null
+          is_main_exercise?: boolean
+          toughness_rating?: number | null
+          weight_direction?: WeightDirection
+          exercise_library_id?: string | null
           created_at?: string
         }
         Relationships: [
@@ -215,6 +370,8 @@ export type Database = {
           set_number: number
           reps_completed?: number | null
           effort_percentage?: number | null
+          rpe?: number | null
+          rir?: number | null
           skipped?: boolean
           completed_at?: string | null
           created_at?: string
@@ -225,6 +382,8 @@ export type Database = {
           set_number?: number
           reps_completed?: number | null
           effort_percentage?: number | null
+          rpe?: number | null
+          rir?: number | null
           skipped?: boolean
           completed_at?: string | null
           created_at?: string
@@ -264,6 +423,49 @@ export type Database = {
             referencedColumns: ["id"]
           }
         ]
+      }
+      // New Phase 1 tables (minimal types for now)
+      exercise_library: {
+        Row: ExerciseLibrary
+        Insert: Partial<ExerciseLibrary>
+        Update: Partial<ExerciseLibrary>
+        Relationships: []
+      }
+      video_uploads: {
+        Row: VideoUpload
+        Insert: Partial<VideoUpload>
+        Update: Partial<VideoUpload>
+        Relationships: []
+      }
+      notifications: {
+        Row: Notification
+        Insert: Partial<Notification>
+        Update: Partial<Notification>
+        Relationships: []
+      }
+      coach_athlete: {
+        Row: CoachAthlete
+        Insert: Partial<CoachAthlete>
+        Update: Partial<CoachAthlete>
+        Relationships: []
+      }
+      usage_tracking: {
+        Row: UsageTracking
+        Insert: Partial<UsageTracking>
+        Update: Partial<UsageTracking>
+        Relationships: []
+      }
+      coach_usage_summary: {
+        Row: CoachUsageSummary
+        Insert: Partial<CoachUsageSummary>
+        Update: Partial<CoachUsageSummary>
+        Relationships: []
+      }
+      weekly_reports: {
+        Row: WeeklyReport
+        Insert: Partial<WeeklyReport>
+        Update: Partial<WeeklyReport>
+        Relationships: []
       }
     }
     Views: {
