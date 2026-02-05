@@ -50,7 +50,7 @@ export function DayNameEditor({ dayName, dayNumber, onSave, disabled = false }: 
         onBlur={handleSave}
         onKeyDown={handleKeyDown}
         disabled={disabled}
-        className="px-2 py-1 bg-gray-800 border border-blue-500 rounded text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full bg-transparent text-white text-xl font-bold focus:outline-none"
         placeholder={`Day ${dayNumber}`}
       />
     )
@@ -61,14 +61,15 @@ export function DayNameEditor({ dayName, dayNumber, onSave, disabled = false }: 
       onClick={() => !disabled && setIsEditing(true)}
       disabled={disabled}
       className={`
-        px-2 py-1 rounded text-sm font-medium transition-colors
+        w-full text-left text-xl font-bold transition-colors
         ${dayName
-          ? 'text-white hover:bg-gray-800'
-          : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800'
+          ? 'text-white'
+          : 'text-gray-400'
         }
-        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+        ${!disabled && 'hover:text-white'}
+        ${disabled ? 'cursor-default' : 'cursor-pointer'}
       `}
-      title={dayName || `Click to name Day ${dayNumber}`}
+      title={dayName || `Day ${dayNumber}`}
     >
       {dayName || `Day ${dayNumber}`}
     </button>

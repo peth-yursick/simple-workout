@@ -47,23 +47,24 @@ export function WorkoutHeader({ workout, exercises, doneCount, totalCount }: Wor
                 editMode ? 'text-blue-400' : 'text-gray-400 hover:text-gray-300'
               }`}
             >
-              {editMode ? 'Done Editing' : 'Edit Exercises'}
+              {editMode ? 'Done' : 'Edit'}
             </button>
             {!workout.completed_at && !workout.skipped_at && (
               <SkipDayButton workoutId={workout.id} />
             )}
           </div>
         </div>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white mb-1">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1">
+            <p className="text-sm text-gray-500 mb-1">Day</p>
+            <div className={`px-3 py-2 rounded-lg border-2 transition-all ${editMode ? 'bg-gray-800 border-blue-500' : 'bg-gray-900 border-gray-800'}`}>
               <DayNameEditor
                 dayName={workout.day_name}
                 dayNumber={workout.day_number}
                 onSave={handleSaveDayName}
+                disabled={!editMode}
               />
-            </h1>
-            <p className="text-gray-400">Week {workout.week_number}</p>
+            </div>
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold text-white">{doneCount}/{totalCount}</p>

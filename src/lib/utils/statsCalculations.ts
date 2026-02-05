@@ -164,6 +164,7 @@ async function fetchProfile(supabase: SupabaseClient, userId: string) {
 }
 
 async function fetchExercisesWithSets(supabase: SupabaseClient, userId: string, cutoffDate: Date | null) {
+  // Fetch workouts with exercises (without exercise_library join due to potential FK issues)
   let query = supabase
     .from('workouts')
     .select(`
@@ -179,10 +180,6 @@ async function fetchExercisesWithSets(supabase: SupabaseClient, userId: string, 
         rep_min,
         rep_max,
         exercise_library_id,
-        exercise_library (
-          primary_muscles,
-          secondary_muscles
-        ),
         exercise_sets (
           id,
           reps_completed,
@@ -201,7 +198,44 @@ async function fetchExercisesWithSets(supabase: SupabaseClient, userId: string, 
 
   const { data, error } = await query
   if (error) throw error
-  return data || []
+
+  // Collect unique exercise_library_ids
+  const libraryIds = new Set<string>()
+  for (const workout of data || []) {
+    for (const exercise of workout.exercises || []) {
+      if (exercise.exercise_library_id) {
+        libraryIds.add(exercise.exercise_library_id)
+      }
+    }
+  }
+
+  // Fetch exercise_library data separately
+  let exerciseLibraryMap: Record<string, { id: string; primary_muscles: unknown; secondary_muscles: unknown }> = {}
+  if (libraryIds.size > 0) {
+    const { data: libraryData, error: libraryError } = await supabase
+      .from('exercise_library')
+      .select('id, primary_muscles, secondary_muscles')
+      .in('id', Array.from(libraryIds))
+
+    if (!libraryError && libraryData) {
+      exerciseLibraryMap = Object.fromEntries(
+        libraryData.map((item) => [item.id, item])
+      )
+    }
+  }
+
+  // Merge exercise_library data into exercises using type assertion
+  const workoutsWithLibrary = (data || []).map((workout) => ({
+    ...workout,
+    exercises: (workout.exercises || []).map((exercise) => ({
+      ...exercise,
+      exercise_library: exercise.exercise_library_id
+        ? exerciseLibraryMap[exercise.exercise_library_id] || null
+        : null
+    }))
+  }))
+
+  return workoutsWithLibrary as unknown
 }
 
 function calculateAvgWorkoutsPerWeek(
