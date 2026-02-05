@@ -76,7 +76,10 @@ export function Dashboard({ initialStats, fetchStats }: DashboardProps) {
       />
 
       {/* Muscle Balance */}
-      <MuscleBalance data={stats.individualMuscleVolumes} />
+      <MuscleBalance
+        muscleGroups={stats.muscleGroupVolumes}
+        individualMuscles={stats.individualMuscleVolumes}
+      />
     </div>
   )
 }
