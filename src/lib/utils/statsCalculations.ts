@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js'
-import { getMuscleGroups, MuscleGroup, ALL_MUSCLE_GROUPS } from './muscleMapping'
+import { getMuscleGroups, getIndividualMuscles, MuscleGroup, ALL_MUSCLE_GROUPS } from './muscleMapping'
 
 export type TimeFilter = 'all-time' | 'last-2-months'
 
@@ -559,11 +559,35 @@ function calculateIndividualMuscleVolumes(workoutsData: WorkoutWithExercises[]):
           }
         }
       } else {
-        // Fallback to muscle groups if no library data
-        const { primary, secondary } = getMuscleGroups(exercise.name)
-        muscleVolumes[primary] = (muscleVolumes[primary] || 0) + exerciseVolume
-        if (secondary) {
-          muscleVolumes[secondary] = (muscleVolumes[secondary] || 0) + exerciseVolume * 0.5
+        // Fallback to individual muscles mapping if no library data
+        const individualMapping = getIndividualMuscles(exercise.name)
+
+        if (individualMapping && individualMapping.muscles.length > 0) {
+          // Use the individual muscle mapping
+          const totalActivation = individualMapping.muscles.reduce(
+            (sum, m) => sum + m.activation,
+            0
+          )
+
+          for (const muscleData of individualMapping.muscles) {
+            const muscleName = muscleData.muscle
+            const activationRatio = muscleData.activation / totalActivation
+            const muscleVolume = exerciseVolume * activationRatio
+
+            if (!muscleVolumes[muscleName]) {
+              muscleVolumes[muscleName] = 0
+              musclePrimaryCount[muscleName] = 0
+            }
+            muscleVolumes[muscleName] += muscleVolume
+            musclePrimaryCount[muscleName] += 1
+          }
+        } else {
+          // Last resort: fall back to muscle groups
+          const { primary, secondary } = getMuscleGroups(exercise.name)
+          muscleVolumes[primary] = (muscleVolumes[primary] || 0) + exerciseVolume
+          if (secondary) {
+            muscleVolumes[secondary] = (muscleVolumes[secondary] || 0) + exerciseVolume * 0.5
+          }
         }
       }
     }
