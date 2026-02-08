@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { Exercise, ExerciseWithSets, ExerciseStatus } from '@/lib/types/database'
+import { mapSupabaseError } from '@/lib/errors'
 
 export async function getExercisesByWorkout(
   supabase: SupabaseClient,
@@ -11,7 +12,7 @@ export async function getExercisesByWorkout(
     .eq('workout_id', workoutId)
     .order('order')
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error, 'Exercises')
   return data as Exercise[]
 }
 
@@ -27,7 +28,7 @@ export async function getExercise(
 
   if (error) {
     if (error.code === 'PGRST116') return null
-    throw error
+    throw mapSupabaseError(error, 'Exercise')
   }
   return data as Exercise
 }
@@ -47,7 +48,7 @@ export async function getExerciseWithSets(
 
   if (error) {
     if (error.code === 'PGRST116') return null
-    throw error
+    throw mapSupabaseError(error, 'Exercise with sets')
   }
 
   const exercise = data as ExerciseWithSets
@@ -77,12 +78,14 @@ export async function createExercise(
   }
 ): Promise<Exercise> {
   // Get the current max order for this workout
-  const { data: existing } = await supabase
+  const { data: existing, error: orderError } = await supabase
     .from('exercises')
     .select('order')
     .eq('workout_id', exercise.workout_id)
     .order('order', { ascending: false })
     .limit(1)
+
+  if (orderError) throw mapSupabaseError(orderError, 'Exercise order')
 
   const existingExercises = existing as { order: number }[] | null
   const nextOrder = existingExercises?.length ? existingExercises[0].order + 1 : 0
@@ -98,7 +101,7 @@ export async function createExercise(
     .select()
     .single()
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error, 'Exercise')
 
   const createdExercise = data as Exercise
 
@@ -112,7 +115,7 @@ export async function createExercise(
     .from('exercise_sets')
     .insert(sets)
 
-  if (setsError) throw setsError
+  if (setsError) throw mapSupabaseError(setsError, 'Exercise sets')
 
   return createdExercise
 }
@@ -140,7 +143,7 @@ export async function updateExercise(
     .select()
     .single()
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error, 'Exercise')
   return data as Exercise
 }
 
@@ -168,7 +171,7 @@ export async function reorderExercises(
 
   const results = await Promise.all(updates)
   const errors = results.filter(r => r.error)
-  if (errors.length) throw errors[0].error
+  if (errors.length) throw mapSupabaseError(errors[0].error, 'Exercise reordering')
 }
 
 export async function deleteExercise(
@@ -180,7 +183,7 @@ export async function deleteExercise(
     .delete()
     .eq('id', exerciseId)
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error, 'Exercise')
 }
 
 export async function skipExercise(
@@ -195,7 +198,7 @@ export async function skipExercise(
     .select()
     .single()
 
-  if (exerciseError) throw exerciseError
+  if (exerciseError) throw mapSupabaseError(exerciseError, 'Exercise')
 
   // Mark all incomplete sets as skipped
   const { error: setsError } = await supabase
@@ -204,7 +207,7 @@ export async function skipExercise(
     .eq('exercise_id', exerciseId)
     .is('completed_at', null)
 
-  if (setsError) throw setsError
+  if (setsError) throw mapSupabaseError(setsError, 'Exercise sets')
 
   return exercise as Exercise
 }
@@ -221,7 +224,7 @@ export async function getNextIncompleteExercise(
     .eq('workout_id', workoutId)
     .order('order')
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error, 'Exercises')
 
   const exercises = data as Exercise[]
   if (!exercises?.length) return null

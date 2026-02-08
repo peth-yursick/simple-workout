@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { ExerciseSet } from '@/lib/types/database'
+import { mapSupabaseError } from '@/lib/errors'
 
 export async function getSetsByExercise(
   supabase: SupabaseClient,
@@ -11,7 +12,7 @@ export async function getSetsByExercise(
     .eq('exercise_id', exerciseId)
     .order('set_number')
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error, 'Exercise sets')
   return data as ExerciseSet[]
 }
 
@@ -27,7 +28,7 @@ export async function getSet(
 
   if (error) {
     if (error.code === 'PGRST116') return null
-    throw error
+    throw mapSupabaseError(error, 'Exercise set')
   }
   return data as ExerciseSet
 }
@@ -69,7 +70,7 @@ export async function completeSet(
     .select()
     .single()
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error, 'Exercise set')
   return data as ExerciseSet
 }
 
@@ -91,7 +92,7 @@ export async function updateSet(
     .select()
     .single()
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error, 'Exercise set')
   return data as ExerciseSet
 }
 
@@ -106,7 +107,7 @@ export async function skipSet(
     .select()
     .single()
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error, 'Exercise set')
   return data as ExerciseSet
 }
 
@@ -128,7 +129,7 @@ export async function resetSet(
     .select()
     .single()
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error, 'Exercise set')
   return data as ExerciseSet
 }
 
@@ -141,7 +142,7 @@ export async function checkExerciseCompletion(
     .select('completed_at, skipped')
     .eq('exercise_id', exerciseId)
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error, 'Exercise sets')
 
   const sets = data as { completed_at: string | null; skipped: boolean }[]
 
@@ -158,7 +159,7 @@ export async function getExerciseProgress(
     .select('completed_at, skipped')
     .eq('exercise_id', exerciseId)
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error, 'Exercise sets')
 
   const sets = data as { completed_at: string | null; skipped: boolean }[]
 

@@ -72,8 +72,7 @@ export default async function HomePage() {
   // Check if all days are complete or skipped - if so, redirect to week transition
   if (weekWorkouts && weekWorkouts.length > 0) {
     const allDaysDone = weekWorkouts.every(w => {
-      const skippedAt = 'skipped_at' in w ? w.skipped_at : null
-      return w.completed_at !== null || skippedAt !== null
+      return w.completed_at !== null || w.skipped_at !== null
     })
 
     if (allDaysDone) {

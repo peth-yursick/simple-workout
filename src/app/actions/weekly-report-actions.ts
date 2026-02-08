@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { awardLevelProgress } from '@/lib/utils/levelProgress'
+import { mapSupabaseError } from '@/lib/errors'
+import * as programsApi from '@/lib/api/programs'
 
 export async function submitWeeklyReport(data: {
   weekNumber: number
@@ -27,6 +29,10 @@ export async function submitWeeklyReport(data: {
 
   const actualProgramId = profile?.current_program_id || data.programId
 
+  // Get program to determine days per week
+  const program = actualProgramId ? await programsApi.getProgram(supabase, actualProgramId) : null
+  const daysPerWeek = program?.days_per_week ?? 3
+
   // Create weekly report
   const { error: reportError } = await supabase
     .from('weekly_reports')
@@ -43,19 +49,22 @@ export async function submitWeeklyReport(data: {
       submitted_at: new Date().toISOString(),
     })
 
-  if (reportError) throw reportError
+  if (reportError) throw mapSupabaseError(reportError, 'Weekly report')
 
   // Check for level up
   const levelResult = await awardLevelProgress(supabase, user.id)
 
-  // Create workouts for next week
+  // Create workouts for next week using program's days_per_week
+  const workoutsToCreate = Array.from({ length: daysPerWeek }, (_, i) => ({
+    user_id: user.id,
+    week_number: data.weekNumber + 1,
+    day_number: i + 1,
+    program_id: actualProgramId,
+  }))
+
   const { data: newWorkouts } = await supabase
     .from('workouts')
-    .insert([
-      { user_id: user.id, week_number: data.weekNumber + 1, day_number: 1, program_id: actualProgramId },
-      { user_id: user.id, week_number: data.weekNumber + 1, day_number: 2, program_id: actualProgramId },
-      { user_id: user.id, week_number: data.weekNumber + 1, day_number: 3, program_id: actualProgramId },
-    ])
+    .insert(workoutsToCreate)
     .select()
 
   if (!newWorkouts) throw new Error('Failed to create workouts for next week')

@@ -12,8 +12,7 @@ interface DayCardProps {
 
 export function DayCard({ workout, exerciseCount, completedCount, hasSkipped = false }: DayCardProps) {
   const isComplete = workout.completed_at !== null
-  // Handle case where skipped_at column might not exist in database yet
-  const isDaySkipped = 'skipped_at' in workout && workout.skipped_at !== null
+  const isDaySkipped = workout.skipped_at !== null
   const progress = exerciseCount > 0 ? (completedCount / exerciseCount) * 100 : 0
 
   // Determine color scheme:

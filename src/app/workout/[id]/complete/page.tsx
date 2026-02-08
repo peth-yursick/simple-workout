@@ -24,11 +24,8 @@ export default async function CompletePage({ params }: CompletePageProps) {
     notFound()
   }
 
-  // Handle case where skipped_at column might not exist in database yet
-  const workoutSkippedAt = 'skipped_at' in workout ? workout.skipped_at : null
-
   // Mark the current workout as complete if not already complete or skipped
-  if (!workout.completed_at && !workoutSkippedAt) {
+  if (!workout.completed_at && !workout.skipped_at) {
     await supabase
       .from('workouts')
       .update({ completed_at: new Date().toISOString() })
@@ -45,8 +42,7 @@ export default async function CompletePage({ params }: CompletePageProps) {
   // A day is "done" if it's completed, skipped, or is the current workout being completed
   const allComplete = weekWorkouts?.length === 3 &&
     weekWorkouts.every(w => {
-      const skippedAt = 'skipped_at' in w ? w.skipped_at : null
-      return w.completed_at !== null || skippedAt !== null || w.id === workout.id
+      return w.completed_at !== null || w.skipped_at !== null || w.id === workout.id
     })
 
   if (allComplete) {

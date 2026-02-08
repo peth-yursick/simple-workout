@@ -28,6 +28,7 @@ export interface Program {
   current_week: number
   order: number
   status: ProgramStatus
+  days_per_week: number
   created_at: string
 }
 

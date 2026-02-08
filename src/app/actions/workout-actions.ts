@@ -19,7 +19,11 @@ export async function createWeekWorkouts(weekNumber: number) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  const workouts = await workoutsApi.createWeekWorkouts(supabase, user.id, weekNumber)
+  // Get current program to determine days per week
+  const program = await programsApi.getCurrentProgram(supabase, user.id)
+  const daysPerWeek = program?.days_per_week ?? 3
+
+  const workouts = await workoutsApi.createWeekWorkouts(supabase, user.id, weekNumber, daysPerWeek)
   revalidatePath('/')
   return workouts
 }
@@ -74,7 +78,18 @@ export async function duplicateWorkoutsToNextWeek(fromWeek: number, toWeek: numb
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  const workouts = await workoutsApi.duplicateWorkoutsToNextWeek(supabase, user.id, fromWeek, toWeek)
+  // Get current program to determine days per week
+  const program = await programsApi.getCurrentProgram(supabase, user.id)
+  const daysPerWeek = program?.days_per_week ?? 3
+
+  const workouts = await workoutsApi.duplicateWorkoutsToNextWeek(
+    supabase,
+    user.id,
+    fromWeek,
+    toWeek,
+    program?.id,
+    daysPerWeek
+  )
   revalidatePath('/')
   return workouts
 }
@@ -279,8 +294,21 @@ export async function startNextWeek(
     .eq('id', user.id)
     .single()
 
+  // Get current program to determine days per week
+  const program = profile?.current_program_id
+    ? await programsApi.getProgram(supabase, profile.current_program_id)
+    : null
+  const daysPerWeek = program?.days_per_week ?? 3
+
   // Duplicate workouts from current week to next week
-  const newWorkouts = await workoutsApi.duplicateWorkoutsToNextWeek(supabase, user.id, fromWeek, toWeek, profile?.current_program_id || undefined)
+  const newWorkouts = await workoutsApi.duplicateWorkoutsToNextWeek(
+    supabase,
+    user.id,
+    fromWeek,
+    toWeek,
+    profile?.current_program_id || undefined,
+    daysPerWeek
+  )
 
   // Track unique exercises that got weight increases (for level progress)
   const exercisesWithWeightIncrease = new Set<string>()
@@ -343,6 +371,10 @@ export async function checkWeekCompletion(weekNumber: number) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
+  // Get current program to determine days per week
+  const program = await programsApi.getCurrentProgram(supabase, user.id)
+  const daysPerWeek = program?.days_per_week ?? 3
+
   // Get all workouts for this week
   const { data: workouts } = await supabase
     .from('workouts')
@@ -350,9 +382,9 @@ export async function checkWeekCompletion(weekNumber: number) {
     .eq('user_id', user.id)
     .eq('week_number', weekNumber)
 
-  if (!workouts || workouts.length < 3) return false
+  if (!workouts || workouts.length < daysPerWeek) return false
 
-  // Check if all 3 days are complete
+  // Check if all days are complete
   return workouts.every(w => w.completed_at !== null)
 }
 

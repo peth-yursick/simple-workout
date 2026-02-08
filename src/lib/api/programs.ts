@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { Program, ProgramWithWeeks, ProgramStatus } from '@/lib/types/database'
+import { mapSupabaseError } from '@/lib/errors'
 
 export async function getPrograms(
   supabase: SupabaseClient,
@@ -11,7 +12,7 @@ export async function getPrograms(
     .eq('user_id', userId)
     .order('order')
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error)
   return data as Program[]
 }
 
@@ -107,6 +108,7 @@ export async function createProgram(
     user_id: string
     name: string
     total_weeks: number
+    days_per_week?: number
     order?: number
     status?: ProgramStatus
   }
@@ -129,13 +131,14 @@ export async function createProgram(
       user_id: data.user_id,
       name: data.name,
       total_weeks: data.total_weeks,
+      days_per_week: data.days_per_week ?? 3,
       order: data.order,
       status: data.status || 'upcoming'
     })
     .select()
     .single()
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error)
   return program as Program
 }
 
@@ -151,7 +154,7 @@ export async function updateProgram(
     .select()
     .single()
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error)
   return data as Program
 }
 
@@ -180,7 +183,7 @@ export async function advanceProgramWeek(
     .select()
     .single()
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error)
   return { program: data as Program, isComplete }
 }
 
@@ -198,7 +201,7 @@ export async function getNextProgram(
     .order('order')
     .limit(1)
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error)
   if (!data || data.length === 0) return null
   return data[0] as Program
 }
@@ -234,7 +237,7 @@ export async function deleteProgram(
     .delete()
     .eq('id', programId)
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error)
 }
 
 export async function deleteAllUserPrograms(
@@ -246,5 +249,5 @@ export async function deleteAllUserPrograms(
     .delete()
     .eq('user_id', userId)
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error)
 }

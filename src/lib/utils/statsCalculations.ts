@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { getMuscleGroups, getIndividualMuscles, MuscleGroup, ALL_MUSCLE_GROUPS } from './muscleMapping'
+import { mapSupabaseError } from '../errors'
 
 export type TimeFilter = 'all-time' | 'last-2-months'
 
@@ -67,12 +68,30 @@ function getDateCutoff(filter: TimeFilter): Date | null {
 }
 
 /**
+ * Calculate the total volume (reps × weight) for a completed exercise.
+ * Only counts sets that are completed (not skipped) with valid rep data.
+ */
+function calculateExerciseVolume(exercise: {
+  weight_kg: number
+  exercise_sets: { completed_at: string | null; skipped: boolean; reps_completed: number | null }[]
+}): number {
+  let volume = 0
+  for (const set of exercise.exercise_sets || []) {
+    if (set.completed_at && !set.skipped && set.reps_completed) {
+      volume += set.reps_completed * exercise.weight_kg
+    }
+  }
+  return volume
+}
+
+/**
  * Calculate all dashboard statistics
  */
 export async function calculateDashboardStats(
   supabase: SupabaseClient,
   userId: string,
-  filter: TimeFilter
+  filter: TimeFilter,
+  daysPerWeek: number = 3
 ): Promise<DashboardStats> {
   const cutoffDate = getDateCutoff(filter)
 
@@ -89,7 +108,7 @@ export async function calculateDashboardStats(
 
   // Count completed (non-skipped) workouts
   const totalWorkouts = workoutsData.filter(w => {
-    const skippedAt = 'skipped_at' in w ? w.skipped_at : null
+    const skippedAt = w.skipped_at
     return w.completed_at !== null && skippedAt === null
   }).length
 
@@ -100,11 +119,11 @@ export async function calculateDashboardStats(
   // Calculate avg workouts per week (pass all workouts to get week count)
   const avgWorkoutsPerWeek = calculateAvgWorkoutsPerWeek(workoutsData)
 
-  // Calculate consistency (pass all workouts)
-  const consistencyPercentage = calculateConsistency(workoutsData)
+  // Calculate consistency (pass all workouts and days per week)
+  const consistencyPercentage = calculateConsistency(workoutsData, daysPerWeek)
 
-  // Calculate weekly streak
-  const weeklyStreak = calculateWeeklyStreak(workoutsData)
+  // Calculate weekly streak (pass days per week)
+  const weeklyStreak = calculateWeeklyStreak(workoutsData, daysPerWeek)
 
   // Calculate volume over time
   const volumeOverTime = calculateVolumeOverTime(exercisesWithSets as unknown as WorkoutWithExercises[])
@@ -149,7 +168,7 @@ async function fetchWorkouts(supabase: SupabaseClient, userId: string, cutoffDat
   }
 
   const { data, error } = await query
-  if (error) throw error
+  if (error) throw mapSupabaseError(error)
   return data || []
 }
 
@@ -197,7 +216,7 @@ async function fetchExercisesWithSets(supabase: SupabaseClient, userId: string, 
   }
 
   const { data, error } = await query
-  if (error) throw error
+  if (error) throw mapSupabaseError(error)
 
   // Collect unique exercise_library_ids
   const libraryIds = new Set<string>()
@@ -256,7 +275,8 @@ function calculateAvgWorkoutsPerWeek(
 }
 
 function calculateConsistency(
-  workouts: { week_number: number; completed_at: string | null; skipped_at?: string | null }[]
+  workouts: { week_number: number; completed_at: string | null; skipped_at?: string | null }[],
+  daysPerWeek: number = 3
 ): number {
   if (workouts.length === 0) return 0
 
@@ -266,35 +286,38 @@ function calculateConsistency(
 
   if (totalWeeks === 0) return 0
 
-  // Expected: 3 workouts per week
-  const expectedWorkouts = totalWeeks * 3
+  // Expected: daysPerWeek workouts per week
+  const expectedWorkouts = totalWeeks * daysPerWeek
 
   // Count completed workouts (completed_at is not null, and not skipped)
   const completedCount = workouts.filter(w => {
-    const skippedAt = 'skipped_at' in w ? w.skipped_at : null
+    const skippedAt = w.skipped_at
     return w.completed_at !== null && skippedAt === null
   }).length
 
   return Math.min(100, Math.round((completedCount / expectedWorkouts) * 100))
 }
 
-function calculateWeeklyStreak(workouts: { week_number: number; completed_at: string | null; skipped_at?: string | null }[]): number {
+function calculateWeeklyStreak(
+  workouts: { week_number: number; completed_at: string | null; skipped_at?: string | null }[],
+  daysPerWeek: number = 3
+): number {
   // Group workouts by week
   const weeklyCompletion: Record<number, number> = {}
 
   for (const w of workouts) {
-    const skippedAt = 'skipped_at' in w ? w.skipped_at : null
+    const skippedAt = w.skipped_at
     if (w.completed_at || skippedAt) {
       weeklyCompletion[w.week_number] = (weeklyCompletion[w.week_number] || 0) + 1
     }
   }
 
-  // Find current streak of weeks with 3/3 days
+  // Find current streak of weeks with all days completed
   const weekNumbers = Object.keys(weeklyCompletion).map(Number).sort((a, b) => b - a)
   let streak = 0
 
   for (const week of weekNumbers) {
-    if (weeklyCompletion[week] >= 3) {
+    if (weeklyCompletion[week] >= daysPerWeek) {
       streak++
     } else {
       break
@@ -330,11 +353,7 @@ function calculateVolumeOverTime(workoutsData: WorkoutWithExercises[]): VolumeDa
     let workoutVolume = 0
 
     for (const exercise of workout.exercises || []) {
-      for (const set of exercise.exercise_sets || []) {
-        if (set.completed_at && !set.skipped && set.reps_completed) {
-          workoutVolume += set.reps_completed * exercise.weight_kg
-        }
-      }
+      workoutVolume += calculateExerciseVolume(exercise)
     }
 
     weeklyVolumes[weekNum] = (weeklyVolumes[weekNum] || 0) + workoutVolume
@@ -436,13 +455,7 @@ function calculateMuscleGroupVolumes(workoutsData: WorkoutWithExercises[]): Musc
   for (const workout of workoutsData) {
     for (const exercise of workout.exercises || []) {
       const { primary, secondary } = getMuscleGroups(exercise.name)
-
-      let exerciseVolume = 0
-      for (const set of exercise.exercise_sets || []) {
-        if (set.completed_at && !set.skipped && set.reps_completed) {
-          exerciseVolume += set.reps_completed * exercise.weight_kg
-        }
-      }
+      const exerciseVolume = calculateExerciseVolume(exercise)
 
       // Primary muscle gets full volume, secondary gets 50%
       muscleVolumes[primary] += exerciseVolume
@@ -477,14 +490,7 @@ function calculateExerciseVolumes(workoutsData: WorkoutWithExercises[]): Exercis
         exerciseWeeklyVolumes[name][weekNum] = 0
       }
 
-      // Calculate volume for this exercise instance
-      let exerciseVolume = 0
-      for (const set of exercise.exercise_sets || []) {
-        if (set.completed_at && !set.skipped && set.reps_completed) {
-          exerciseVolume += set.reps_completed * exercise.weight_kg
-        }
-      }
-
+      const exerciseVolume = calculateExerciseVolume(exercise)
       exerciseWeeklyVolumes[name][weekNum] += exerciseVolume
     }
   }
@@ -510,13 +516,7 @@ function calculateIndividualMuscleVolumes(workoutsData: WorkoutWithExercises[]):
 
   for (const workout of workoutsData) {
     for (const exercise of workout.exercises || []) {
-      // Calculate volume for this exercise
-      let exerciseVolume = 0
-      for (const set of exercise.exercise_sets || []) {
-        if (set.completed_at && !set.skipped && set.reps_completed) {
-          exerciseVolume += set.reps_completed * exercise.weight_kg
-        }
-      }
+      const exerciseVolume = calculateExerciseVolume(exercise)
 
       // If exercise has library data with muscle info, use it
       if (exercise.exercise_library?.primary_muscles && exercise.exercise_library.primary_muscles.length > 0) {

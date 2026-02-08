@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Dashboard } from '@/components/dashboard/Dashboard'
 import { calculateDashboardStats } from '@/lib/utils/statsCalculations'
 import { fetchStatsAction } from './actions'
+import * as programsApi from '@/lib/api/programs'
 
 export default async function StatsPage() {
   const supabase = await createClient()
@@ -14,8 +15,12 @@ export default async function StatsPage() {
     redirect('/login')
   }
 
+  // Get current program to determine days per week
+  const program = await programsApi.getCurrentProgram(supabase, user.id)
+  const daysPerWeek = program?.days_per_week ?? 3
+
   // Fetch initial stats (all-time)
-  const initialStats = await calculateDashboardStats(supabase, user.id, 'all-time')
+  const initialStats = await calculateDashboardStats(supabase, user.id, 'all-time', daysPerWeek)
 
   return (
     <div className="min-h-screen bg-gray-950">

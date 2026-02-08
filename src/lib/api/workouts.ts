@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js'
-import { Workout, WorkoutWithExercises, Exercise } from '@/lib/types/database'
+import { Workout, WorkoutWithExercises, Exercise, Program } from '@/lib/types/database'
+import { mapSupabaseError } from '@/lib/errors'
 
 export async function getWorkoutsByWeek(
   supabase: SupabaseClient,
@@ -13,7 +14,7 @@ export async function getWorkoutsByWeek(
     .eq('week_number', weekNumber)
     .order('day_number')
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error, 'Workouts')
   return data as Workout[]
 }
 
@@ -41,7 +42,7 @@ export async function getWorkoutsWithProgress(
     .eq('week_number', weekNumber)
     .order('day_number')
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error, 'Workouts with progress')
 
   return (data || []).map((workout: Workout & { exercises: { id: string; status: string }[] }) => {
     const exercises = workout.exercises || []
@@ -65,24 +66,21 @@ export async function getWorkout(
   supabase: SupabaseClient,
   workoutId: string
 ): Promise<Workout | null> {
-  const { data, error } = await supabase
+  const result = await supabase
     .from('workouts')
     .select('*')
     .eq('id', workoutId)
     .single()
 
-  if (error) {
-    if (error.code === 'PGRST116') return null
-    throw error
-  }
-  return data as Workout
+  if (result.error) throw mapSupabaseError(result.error, 'Workout')
+  return result.data as Workout | null
 }
 
 export async function getWorkoutWithExercises(
   supabase: SupabaseClient,
   workoutId: string
 ): Promise<WorkoutWithExercises | null> {
-  const { data, error } = await supabase
+  const result = await supabase
     .from('workouts')
     .select(`
       *,
@@ -94,12 +92,10 @@ export async function getWorkoutWithExercises(
     .eq('id', workoutId)
     .single()
 
-  if (error) {
-    if (error.code === 'PGRST116') return null
-    throw error
-  }
+  if (result.error) throw mapSupabaseError(result.error, 'Workout with exercises')
+  if (!result.data) return null
 
-  const workout = data as WorkoutWithExercises
+  const workout = result.data as WorkoutWithExercises
 
   // Sort exercises by order and sets by set_number
   if (workout?.exercises) {
@@ -122,23 +118,25 @@ export async function createWorkout(
     day_number: number
   }
 ): Promise<Workout> {
-  const { data, error } = await supabase
+  const result = await supabase
     .from('workouts')
     .insert(workout)
     .select()
     .single()
 
-  if (error) throw error
-  return data as Workout
+  if (result.error) throw mapSupabaseError(result.error, 'Workout')
+  return result.data as Workout
 }
 
 export async function createWeekWorkouts(
   supabase: SupabaseClient,
   userId: string,
   weekNumber: number,
+  daysPerWeek: number = 3,
   programId?: string
 ): Promise<Workout[]> {
-  const workouts = [1, 2, 3].map(day => {
+  const workouts = Array.from({ length: daysPerWeek }, (_, i) => {
+    const day = i + 1
     const workout: Record<string, unknown> = {
       user_id: userId,
       week_number: weekNumber,
@@ -148,28 +146,28 @@ export async function createWeekWorkouts(
     return workout
   })
 
-  const { data, error } = await supabase
+  const result = await supabase
     .from('workouts')
     .insert(workouts)
     .select()
 
-  if (error) throw error
-  return data as Workout[]
+  if (result.error) throw mapSupabaseError(result.error, 'Week workouts')
+  return result.data as Workout[]
 }
 
 export async function completeWorkout(
   supabase: SupabaseClient,
   workoutId: string
 ): Promise<Workout> {
-  const { data, error } = await supabase
+  const result = await supabase
     .from('workouts')
     .update({ completed_at: new Date().toISOString() })
     .eq('id', workoutId)
     .select()
     .single()
 
-  if (error) throw error
-  return data as Workout
+  if (result.error) throw mapSupabaseError(result.error, 'Workout')
+  return result.data as Workout
 }
 
 export async function duplicateWorkoutsToNextWeek(
@@ -177,7 +175,8 @@ export async function duplicateWorkoutsToNextWeek(
   userId: string,
   fromWeek: number,
   toWeek: number,
-  programId?: string
+  programId?: string,
+  daysPerWeek: number = 3
 ): Promise<Workout[]> {
   // Get existing workouts with exercises
   const { data: existingWorkouts, error: fetchError } = await supabase
@@ -190,17 +189,17 @@ export async function duplicateWorkoutsToNextWeek(
     .eq('week_number', fromWeek)
     .order('day_number')
 
-  if (fetchError) throw fetchError
+  if (fetchError) throw mapSupabaseError(fetchError, 'Existing workouts')
 
   type WorkoutWithExercisesPartial = Workout & { exercises: Exercise[] }
   const workoutsWithExercises = existingWorkouts as WorkoutWithExercisesPartial[]
 
   if (!workoutsWithExercises?.length) {
-    return createWeekWorkouts(supabase, userId, toWeek, programId)
+    return createWeekWorkouts(supabase, userId, toWeek, daysPerWeek, programId)
   }
 
   // Create new workouts for the new week
-  const newWorkouts = await createWeekWorkouts(supabase, userId, toWeek, programId)
+  const newWorkouts = await createWeekWorkouts(supabase, userId, toWeek, daysPerWeek, programId)
 
   // Duplicate exercises for each day
   for (const oldWorkout of workoutsWithExercises) {
@@ -244,7 +243,7 @@ export async function duplicateWorkoutsToNextWeek(
 
         if (insertError) {
           console.error('Failed to insert exercise:', exerciseData, insertError)
-          throw insertError
+          throw mapSupabaseError(insertError, 'Exercise')
         }
 
         // Create exercise sets for this exercise
@@ -257,7 +256,7 @@ export async function duplicateWorkoutsToNextWeek(
           .from('exercise_sets')
           .insert(sets)
 
-        if (setsError) throw setsError
+        if (setsError) throw mapSupabaseError(setsError, 'Exercise sets')
       }
     }
   }
@@ -274,5 +273,5 @@ export async function deleteWorkout(
     .delete()
     .eq('id', workoutId)
 
-  if (error) throw error
+  if (error) throw mapSupabaseError(error, 'Workout')
 }
