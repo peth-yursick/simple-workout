@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js'
-import { Workout, WorkoutWithExercises, Exercise, Program } from '@/lib/types/database'
+import { Workout, WorkoutWithExercises, Exercise } from '@/lib/types/database'
 import { mapSupabaseError } from '@/lib/errors'
 
 export async function getWorkoutsByWeek(

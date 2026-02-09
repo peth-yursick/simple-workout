@@ -8,6 +8,8 @@ const requiredEnvVars = {
   NEXT_PUBLIC_SUPABASE_ANON_KEY: 'Supabase anonymous key',
 } as const
 
+// Placeholder for optional environment variables
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const optionalEnvVars = {
   // Add optional env vars here if needed in the future
 } as const
