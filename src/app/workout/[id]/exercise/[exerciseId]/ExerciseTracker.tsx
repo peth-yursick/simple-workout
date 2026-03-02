@@ -213,22 +213,27 @@ export function ExerciseTracker({ workout, exercise, nextExerciseId, incompleteC
             />
           )}
 
-          {/* Next Exercise button */}
-          {nextExerciseId && (
-            <div className="mt-4">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  router.push(`/workout/${workout.id}/exercise/${nextExerciseId}`)
-                }}
-                className="w-full"
-              >
-                Next Exercise &rarr;
-              </Button>
-            </div>
-          )}
         </div>
       </main>
+
+      {/* Bottom navigation */}
+      <footer className="bg-gray-900 border-t border-gray-800 px-4 py-4">
+        <div className="max-w-lg mx-auto">
+          <Button
+            variant="primary"
+            onClick={() => {
+              if (nextExerciseId) {
+                router.push(`/workout/${workout.id}/exercise/${nextExerciseId}`)
+              } else {
+                router.push(`/workout/${workout.id}`)
+              }
+            }}
+            className="w-full"
+          >
+            {nextExerciseId ? 'Next Exercise →' : 'Back to Workout →'}
+          </Button>
+        </div>
+      </footer>
 
       {/* Edit Exercise Modal */}
       {showEditModal && (
