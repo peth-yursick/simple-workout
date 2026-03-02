@@ -87,6 +87,7 @@ export default async function CompletePage({ params }: CompletePageProps) {
       workoutId={workout.id}
       dayNumber={workout.day_number}
       weekNumber={workout.week_number}
+      isSkipped={!!workout.skipped_at}
     />
   )
 }

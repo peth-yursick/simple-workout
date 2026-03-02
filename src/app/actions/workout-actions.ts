@@ -185,6 +185,23 @@ export async function updateExercise(
   }>
 ) {
   const supabase = await createClient()
+
+  // Check if weight is being increased (for level progress)
+  if (updates.weight_kg !== undefined) {
+    const { data: currentExercise } = await supabase
+      .from('exercises')
+      .select('weight_kg')
+      .eq('id', exerciseId)
+      .single()
+
+    if (currentExercise && updates.weight_kg > currentExercise.weight_kg) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        await awardLevelProgress(supabase, user.id)
+      }
+    }
+  }
+
   const exercise = await exercisesApi.updateExercise(supabase, exerciseId, updates)
   revalidatePath(`/workout/${workoutId}`)
   revalidatePath(`/exercise/${exerciseId}`)
@@ -194,7 +211,27 @@ export async function updateExercise(
 export async function deleteExercise(exerciseId: string, workoutId: string) {
   const supabase = await createClient()
   await exercisesApi.deleteExercise(supabase, exerciseId)
+
+  // Check if all remaining exercises are now complete/skipped
+  const { data: remainingExercises } = await supabase
+    .from('exercises')
+    .select('id, status')
+    .eq('workout_id', workoutId)
+
+  if (remainingExercises && remainingExercises.length > 0) {
+    const allDone = remainingExercises.every(e => e.status === 'complete' || e.status === 'skipped')
+    if (allDone) {
+      // Mark workout as complete
+      await supabase
+        .from('workouts')
+        .update({ completed_at: new Date().toISOString() })
+        .eq('id', workoutId)
+        .is('completed_at', null)
+    }
+  }
+
   revalidatePath(`/workout/${workoutId}`)
+  revalidatePath('/')
 }
 
 export async function updateWorkout(

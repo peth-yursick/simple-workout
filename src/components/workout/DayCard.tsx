@@ -26,7 +26,7 @@ export function DayCard({ workout, exerciseCount, completedCount, hasSkipped = f
     }
     if (isComplete) {
       if (hasSkipped) {
-        return { bg: 'bg-orange-950/50', border: 'border-orange-800 hover:border-orange-700', bar: 'bg-orange-500', badge: 'text-orange-400 bg-orange-900/50', badgeText: 'Done' }
+        return { bg: 'bg-yellow-950/50', border: 'border-yellow-800 hover:border-yellow-700', bar: 'bg-yellow-500', badge: 'text-yellow-400 bg-yellow-900/50', badgeText: 'Done' }
       }
       return { bg: 'bg-green-950/50', border: 'border-green-800 hover:border-green-700', bar: 'bg-green-500', badge: 'text-green-400 bg-green-900/50', badgeText: 'Complete' }
     }

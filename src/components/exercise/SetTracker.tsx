@@ -22,7 +22,7 @@ export function SetTracker({ set, exercise, onComplete, onSkip, loading }: SetTr
   const [rpe, setRPE] = useState(() => {
     if (set.rpe !== null) return set.rpe
     if (exercise.target_rpe_min !== null) return exercise.target_rpe_min
-    return 7.5
+    return 7
   })
 
   const [rir, setRIR] = useState(() => {

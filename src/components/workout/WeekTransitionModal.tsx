@@ -54,7 +54,7 @@ export function WeekTransitionModal({ weekNumber, recommendations }: WeekTransit
       const weightUpdates: Record<string, number> = {}
       for (const rec of recommendations) {
         if (selectedExercises.has(rec.exercise_id)) {
-          weightUpdates[rec.exercise_name] = calculateNewWeight(rec.current_weight)
+          weightUpdates[rec.exercise_name] = calculateNewWeight(rec.current_weight, rec.weight_direction || 'increase')
         }
       }
 
@@ -145,12 +145,13 @@ export function WeekTransitionModal({ weekNumber, recommendations }: WeekTransit
         {recommendations.length > 0 ? (
           <div className="mb-6">
             <h3 className="text-sm font-medium text-gray-300 mb-3">
-              Weight increase suggestions:
+              Weight adjustment suggestions:
             </h3>
             <div className="space-y-2">
               {recommendations.map((rec) => {
-                const newWeight = calculateNewWeight(rec.current_weight)
+                const newWeight = calculateNewWeight(rec.current_weight, rec.weight_direction || 'increase')
                 const isSelected = selectedExercises.has(rec.exercise_id)
+                const isDecrease = rec.weight_direction === 'decrease'
                 const isRecommended = rec.recommendation === 'recommended'
 
                 return (
@@ -170,6 +171,7 @@ export function WeekTransitionModal({ weekNumber, recommendations }: WeekTransit
                         <p className="font-medium text-white">{rec.exercise_name}</p>
                         <p className="text-sm text-gray-400">
                           {rec.current_weight}kg → {newWeight}kg
+                          {isDecrease && <span className="text-xs text-blue-400 ml-1">(less assistance)</span>}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">

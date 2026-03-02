@@ -38,7 +38,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <div className="pb-24">
+          {children}
+        </div>
         <WhatsAppButton />
       </body>
     </html>

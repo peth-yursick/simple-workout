@@ -27,10 +27,10 @@ export function RPEInput({
     onChange(Math.max(min, Math.round((value - step) * 10) / 10))
   }
 
-  // Color based on RPE level: green <=7, yellow 7.5-8.5, red >8.5
+  // Color based on RPE level: green <=8, yellow 8.5, red >=9
   const getRPEColor = () => {
-    if (value > 8.5) return 'text-red-400'
-    if (value > 7.5) return 'text-yellow-400'
+    if (value >= 9) return 'text-red-400'
+    if (value > 8) return 'text-yellow-400'
     return 'text-green-400'
   }
 
@@ -76,8 +76,11 @@ export function RPEInput({
 }
 
 function getRPEDescription(rpe: number): string {
-  if (rpe <= 6.5) return 'Moderate - Could do several more reps'
-  if (rpe <= 7.5) return 'Vigorous - Could do 2-3 more reps'
-  if (rpe <= 8.5) return 'Near max - Could do 1 more rep'
+  if (rpe <= 6.5) return 'Moderate - Could do 4+ more reps'
+  if (rpe <= 7) return 'Vigorous - Could do 3 more reps'
+  if (rpe <= 7.5) return 'Hard - Could do 2-3 more reps'
+  if (rpe <= 8) return 'Hard - Could do 2 more reps'
+  if (rpe <= 8.5) return 'Very hard - Could do 1 more rep'
+  if (rpe <= 9.5) return 'Near max - Could do 0-1 more reps'
   return 'Maximum - No reps left in the tank'
 }

@@ -1,13 +1,16 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { env } from '@/lib/config/env'
 
 export async function createClient() {
   const cookieStore = await cookies()
 
+  // Directly access process.env to ensure Next.js inlines these values at build time
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
   return createServerClient(
-    env.supabaseUrl,
-    env.supabaseAnonKey,
+    supabaseUrl || '',
+    supabaseAnonKey || '',
     {
       cookies: {
         getAll() {

@@ -13,8 +13,6 @@ export function SkipDayButton({ workoutId }: SkipDayButtonProps) {
   const [isSkipping, setIsSkipping] = useState(false)
 
   const handleSkip = async () => {
-    if (!confirm('Skip this entire day? All exercises will be marked as skipped.')) return
-
     setIsSkipping(true)
     try {
       await skipWorkout(workoutId)

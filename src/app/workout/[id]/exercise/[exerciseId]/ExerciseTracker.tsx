@@ -7,6 +7,7 @@ import { Workout, ExerciseWithSets } from '@/lib/types/database'
 import { Button } from '@/components/ui/Button'
 import { SetTracker } from '@/components/exercise/SetTracker'
 import { RestTimer } from '@/components/exercise/RestTimer'
+import { EditExerciseModal } from '@/components/workout/EditExerciseModal'
 import { completeSet, skipSet, skipExercise } from '@/app/actions/workout-actions'
 
 interface ExerciseTrackerProps {
@@ -31,7 +32,21 @@ export function ExerciseTracker({ workout, exercise, nextExerciseId, incompleteC
   })
   const [isSkipping, setIsSkipping] = useState(false)
   const [isCompletingFinal, setIsCompletingFinal] = useState(false)
-  const [showRestTimer, setShowRestTimer] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+
+  // Persist rest timer state in sessionStorage to survive component remounts from revalidatePath
+  const restTimerStorageKey = `rest-timer-${exercise.id}`
+  const [showRestTimer, setShowRestTimer] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem(restTimerStorageKey)
+      if (stored) {
+        const endTime = parseInt(stored)
+        if (endTime > Date.now()) return true
+        sessionStorage.removeItem(restTimerStorageKey)
+      }
+    }
+    return false
+  })
 
   const currentSet = exercise.exercise_sets[currentSetIndex]
   const totalSets = exercise.exercise_sets.length
@@ -75,9 +90,12 @@ export function ExerciseTracker({ workout, exercise, nextExerciseId, incompleteC
   }
 
   const handleRestTimerFinish = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem(restTimerStorageKey)
+    }
     setShowRestTimer(false)
     setCurrentSetIndex(prev => prev + 1)
-  }, [])
+  }, [restTimerStorageKey])
 
   const handleSkipSet = async () => {
     const isFinalSet = currentSetIndex >= totalSets - 1
@@ -107,13 +125,8 @@ export function ExerciseTracker({ workout, exercise, nextExerciseId, incompleteC
     }
   }
 
-  const handleBack = () => {
-    // Go back to workout page (exercise list)
-    router.push(`/workout/${workout.id}`)
-  }
-
   if (showRestTimer) {
-    return <RestTimer onFinish={handleRestTimerFinish} />
+    return <RestTimer onFinish={handleRestTimerFinish} storageKey={restTimerStorageKey} />
   }
 
   return (
@@ -121,15 +134,32 @@ export function ExerciseTracker({ workout, exercise, nextExerciseId, incompleteC
       {/* Header */}
       <header className="bg-gray-900 border-b border-gray-800 px-4 py-4">
         <div className="max-w-lg mx-auto">
-          <Link
-            href={`/workout/${workout.id}`}
-            className="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1 mb-2"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Workout
-          </Link>
+          <div className="flex items-center justify-between mb-2">
+            <Link
+              href={`/workout/${workout.id}`}
+              className="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back
+            </Link>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowEditModal(true)}
+                className="text-sm font-medium text-gray-400 hover:text-gray-300 transition-colors"
+              >
+                Edit
+              </button>
+              <button
+                onClick={handleSkipExercise}
+                disabled={isSkipping}
+                className="text-sm font-medium text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors"
+              >
+                {isSkipping ? 'Skipping...' : 'Skip'}
+              </button>
+            </div>
+          </div>
           <h1 className="text-xl font-bold text-white">{exercise.name}</h1>
           <p className="text-gray-400 text-sm">
             {exercise.weight_kg}kg &middot; {exercise.rep_min}-{exercise.rep_max} reps &middot; {totalSets} sets
@@ -182,42 +212,33 @@ export function ExerciseTracker({ workout, exercise, nextExerciseId, incompleteC
               loading={isCompletingFinal}
             />
           )}
+
+          {/* Next Exercise button */}
+          {nextExerciseId && (
+            <div className="mt-4">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  router.push(`/workout/${workout.id}/exercise/${nextExerciseId}`)
+                }}
+                className="w-full"
+              >
+                Next Exercise &rarr;
+              </Button>
+            </div>
+          )}
         </div>
       </main>
 
-      {/* Bottom navigation */}
-      <footer className="bg-gray-900 border-t border-gray-800 px-4 py-4">
-        <div className="max-w-lg mx-auto flex gap-3">
-          <Button
-            variant="ghost"
-            onClick={handleBack}
-            className="flex-1"
-          >
-            &larr; Back
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={handleSkipExercise}
-            loading={isSkipping}
-            className="flex-1"
-          >
-            Skip Exercise
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => {
-              if (nextExerciseId) {
-                router.push(`/workout/${workout.id}/exercise/${nextExerciseId}`)
-              } else {
-                router.push(`/workout/${workout.id}`)
-              }
-            }}
-            className="flex-1"
-          >
-            Next Exercise →
-          </Button>
-        </div>
-      </footer>
+      {/* Edit Exercise Modal */}
+      {showEditModal && (
+        <EditExerciseModal
+          exercise={exercise}
+          workoutId={workout.id}
+          onClose={() => setShowEditModal(false)}
+          onSuccess={() => router.refresh()}
+        />
+      )}
     </div>
   )
 }

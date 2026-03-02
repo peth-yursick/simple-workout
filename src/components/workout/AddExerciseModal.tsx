@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/Button'
 import { MainExerciseStar } from '@/components/exercise/MainExerciseStar'
 import { ToughnessRating } from '@/components/exercise/ToughnessRating'
-import { ExerciseLibraryModal } from '@/components/exercise/ExerciseLibraryModal'
 import { ExerciseLibrary } from '@/lib/types/database'
+import { searchExercises } from '@/lib/api/exercise-library'
+import { createClient } from '@/lib/supabase/client'
 import { createExercise } from '@/app/actions/workout-actions'
 
 interface AddExerciseModalProps {
@@ -23,17 +24,52 @@ export function AddExerciseModal({ workoutId, onClose, onSuccess }: AddExerciseM
   const [isMainExercise, setIsMainExercise] = useState(false)
   const [toughnessRating, setToughnessRating] = useState(3)
   const [isLoading, setIsLoading] = useState(false)
-  const [showLibrary, setShowLibrary] = useState(false)
   const [selectedLibraryExercise, setSelectedLibraryExercise] = useState<ExerciseLibrary | null>(null)
+  const [suggestions, setSuggestions] = useState<ExerciseLibrary[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const suggestionsRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  const handleSelectFromLibrary = (exercise: ExerciseLibrary) => {
+  // Fetch suggestions as user types
+  useEffect(() => {
+    if (name.trim().length < 1) {
+      setSuggestions([])
+      return
+    }
+
+    const fetchSuggestions = async () => {
+      try {
+        const supabase = await createClient()
+        const results = await searchExercises(supabase, name.trim())
+        setSuggestions(results.slice(0, 8))
+      } catch {
+        setSuggestions([])
+      }
+    }
+
+    const timer = setTimeout(fetchSuggestions, 200)
+    return () => clearTimeout(timer)
+  }, [name])
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node) &&
+          inputRef.current && !inputRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleSelectSuggestion = (exercise: ExerciseLibrary) => {
     setName(exercise.name)
     setSelectedLibraryExercise(exercise)
-    // Set defaults based on exercise library data
+    setShowSuggestions(false)
     if (exercise.weight_direction === 'decrease') {
-      setWeightKg('0') // Bodyweight exercises
+      setWeightKg('0')
     }
-    setShowLibrary(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,32 +106,43 @@ export function AddExerciseModal({ workoutId, onClose, onSuccess }: AddExerciseM
         <h2 className="text-xl font-bold text-white mb-4">Add Exercise</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Exercise name */}
-          <div>
+          {/* Exercise name with inline autocomplete */}
+          <div className="relative">
             <label className="block text-sm font-medium text-gray-300 mb-1">Name</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value)
-                  setSelectedLibraryExercise(null) // Clear library selection if manually edited
-                }}
-                placeholder="e.g. Bench Press"
-                className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                autoFocus
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setShowLibrary(true)}
-                title="Browse exercise library"
+            <input
+              ref={inputRef}
+              type="text"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value)
+                setSelectedLibraryExercise(null)
+                setShowSuggestions(true)
+              }}
+              onFocus={() => name.trim().length > 0 && setShowSuggestions(true)}
+              placeholder="e.g. Bench Press"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoFocus
+              autoComplete="off"
+            />
+            {/* Inline suggestions dropdown */}
+            {showSuggestions && suggestions.length > 0 && !selectedLibraryExercise && (
+              <div
+                ref={suggestionsRef}
+                className="absolute z-10 left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg overflow-hidden shadow-lg max-h-48 overflow-y-auto"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-              </Button>
-            </div>
+                {suggestions.map(exercise => (
+                  <button
+                    key={exercise.id}
+                    type="button"
+                    onClick={() => handleSelectSuggestion(exercise)}
+                    className="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors flex items-center justify-between"
+                  >
+                    <span className="text-white text-sm">{exercise.name}</span>
+                    <span className="text-xs text-gray-500 capitalize">{exercise.equipment}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {/* Library indicator */}
             {selectedLibraryExercise && (
               <div className="mt-2 flex items-center gap-2 text-xs text-green-400">
@@ -105,9 +152,7 @@ export function AddExerciseModal({ workoutId, onClose, onSuccess }: AddExerciseM
                 <span>Selected from library</span>
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedLibraryExercise(null)
-                  }}
+                  onClick={() => setSelectedLibraryExercise(null)}
                   className="text-gray-500 hover:text-gray-300"
                 >
                   Clear
@@ -211,13 +256,6 @@ export function AddExerciseModal({ workoutId, onClose, onSuccess }: AddExerciseM
           </div>
         </form>
 
-        {/* Exercise Library Modal */}
-        {showLibrary && (
-          <ExerciseLibraryModal
-            onClose={() => setShowLibrary(false)}
-            onSelectExercise={handleSelectFromLibrary}
-          />
-        )}
       </div>
     </div>
   )

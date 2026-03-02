@@ -143,6 +143,7 @@ export interface WeightRecommendationExercise {
   exercise_name: string
   current_weight: number
   recommendation: WeightRecommendationType
+  weight_direction?: WeightDirection
 }
 
 export interface WeightRecommendation {

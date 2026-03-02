@@ -6,12 +6,28 @@ import { Button } from '@/components/ui/Button'
 interface RestTimerProps {
   duration?: number // in seconds, defaults to 120 (2 minutes)
   onFinish: () => void
+  storageKey?: string // sessionStorage key to persist timer across remounts
 }
 
-export function RestTimer({ duration = 120, onFinish }: RestTimerProps) {
+export function RestTimer({ duration = 120, onFinish, storageKey }: RestTimerProps) {
   // Store the end time instead of counting down
-  const [endTime] = useState(() => Date.now() + duration * 1000)
-  const [timeLeft, setTimeLeft] = useState(duration)
+  // If storageKey is provided, persist/restore from sessionStorage to survive component remounts
+  const [endTime] = useState(() => {
+    if (storageKey && typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem(storageKey)
+      if (stored) {
+        const persistedEnd = parseInt(stored)
+        if (persistedEnd > Date.now()) return persistedEnd
+        sessionStorage.removeItem(storageKey)
+      }
+    }
+    const newEnd = Date.now() + duration * 1000
+    if (storageKey && typeof window !== 'undefined') {
+      sessionStorage.setItem(storageKey, String(newEnd))
+    }
+    return newEnd
+  })
+  const [timeLeft, setTimeLeft] = useState(() => Math.max(0, Math.ceil((endTime - Date.now()) / 1000)))
   const hasFinished = useRef(false)
   const audioContextRef = useRef<AudioContext | null>(null)
 
@@ -64,9 +80,12 @@ export function RestTimer({ duration = 120, onFinish }: RestTimerProps) {
   const handleFinish = useCallback(() => {
     if (hasFinished.current) return
     hasFinished.current = true
+    if (storageKey && typeof window !== 'undefined') {
+      sessionStorage.removeItem(storageKey)
+    }
     playDing()
     onFinish()
-  }, [onFinish, playDing])
+  }, [onFinish, playDing, storageKey])
 
   useEffect(() => {
     const updateTimer = () => {
@@ -155,7 +174,12 @@ export function RestTimer({ duration = 120, onFinish }: RestTimerProps) {
       <Button
         variant="secondary"
         size="lg"
-        onClick={onFinish}
+        onClick={() => {
+          if (storageKey && typeof window !== 'undefined') {
+            sessionStorage.removeItem(storageKey)
+          }
+          onFinish()
+        }}
         className="px-12"
       >
         Skip Rest
